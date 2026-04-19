@@ -10,7 +10,6 @@ export const TELEMETRY_SCHEMA_VERSION = "1.0.0" as const;
 export interface TelemetryIngestRequest {
   schemaVersion: typeof TELEMETRY_SCHEMA_VERSION;
   sessionId: string;
-  recoveryProfileId: string;
   timestamp: string;
   movements: MovementTelemetry[];
   /** Demo bypass: hardcoded patient profile UUID. */
@@ -24,7 +23,8 @@ export interface MovementTelemetry {
   jointTelemetry: Record<string, JointTelemetry>;
   alignmentValidated: boolean;
   asymmetryAnalysis: AsymmetryIndicator[];
-  recommendedPads: RecommendedPad[];
+  recommendedPads?: RecommendedPad[];
+  protocolSuggestion: ProtocolSuggestion;
 }
 
 export interface CaptureWindow {
@@ -72,12 +72,10 @@ export interface TelemetryIngestResponse {
   success: boolean;
   message: string;
   sessionId: string;
-  recoveryProfileId: string;
   createdAt: string;
-  movementRecommendations: MovementRecommendation[];
-}
-
-export interface MovementRecommendation {
-  movementType: string;
-  protocolSuggestion: ProtocolSuggestion;
+  recoveryProfileId?: string;
+  movementRecommendations?: Array<{
+    movementType: string;
+    protocolSuggestion: ProtocolSuggestion;
+  }>;
 }

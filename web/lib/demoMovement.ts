@@ -1,0 +1,68 @@
+import type { MovementResult } from "./movementPipeline";
+import { movementResultToTelemetryMovement } from "./movementPipeline";
+
+/** Stub pipeline result matching contracts/examples/telemetry.request.example.json; swap for live output later. */
+export const DEMO_MOVEMENT_RESULT: MovementResult = {
+  movementType: "squat",
+  captureWindow: {
+    startedAt: "2026-04-18T17:35:36Z",
+    endedAt: "2026-04-18T17:35:42Z",
+    durationMs: 6000,
+  },
+  repCount: 3,
+  joints: {
+    left_knee: {
+      angleSeries: [176.2, 154.8, 126.5, 101.9, 94.3, 112.7, 148.1],
+      maxFlexion: 94.3,
+    },
+    right_knee: {
+      angleSeries: [177.1, 160.4, 137.8, 118.6, 110.2, 126.4, 152.9],
+      maxFlexion: 110.2,
+    },
+    left_hip: {
+      angleSeries: [171.5, 149.3, 121.1, 93.8, 88.4, 101.7, 133.6],
+      maxFlexion: 88.4,
+    },
+    right_hip: {
+      angleSeries: [172.7, 152.1, 128.6, 106.2, 99.9, 113.5, 137.8],
+      maxFlexion: 99.9,
+    },
+  },
+  alignmentValidated: true,
+  asymmetryAnalysis: [
+    {
+      jointType: "knee_flexion",
+      leftPeak: 94.3,
+      rightPeak: 110.2,
+      delta: 15.9,
+      thresholdExceeded: true,
+    },
+    {
+      jointType: "hip_flexion",
+      leftPeak: 88.4,
+      rightPeak: 99.9,
+      delta: 11.5,
+      thresholdExceeded: true,
+    },
+  ],
+  recommendedPads: [
+    {
+      padType: "Sun",
+      targetMuscle: "left_quadriceps",
+      position: { x: 0.37, y: 0.61 },
+    },
+    {
+      padType: "Moon",
+      targetMuscle: "left_gluteus_medius",
+      position: { x: 0.34, y: 0.44 },
+    },
+  ],
+  protocolSuggestion: {
+    thermalCycleSeconds: 90,
+    photobiomodulation: { redNm: 660, blueNm: 470 },
+    mechanicalFrequencyHz: 32,
+  },
+};
+
+/** Contract-shaped movement for UI and POST helpers, derived from {@link DEMO_MOVEMENT_RESULT}. */
+export const DEMO_MOVEMENT = movementResultToTelemetryMovement(DEMO_MOVEMENT_RESULT);

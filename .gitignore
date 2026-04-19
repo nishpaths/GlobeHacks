@@ -1,0 +1,26 @@
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
+
+# Node / Next.js
+node_modules
+.next
+dist
+coverage
+tsconfig.tsbuildinfo
+
+# Python caches
+__pycache__
+*.pyc

@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1.0.0",
   "sessionId": "4db6d0f8-d7f0-4f6d-9ff3-4a58d5c6fe19",
+  "recoveryProfileId": "b39ba208-f388-49cf-b362-56f8cc6e5f78",
   "timestamp": "2026-04-18T17:35:42Z",
   "movements": [
     {
@@ -63,15 +64,7 @@
             "y": 0.44
           }
         }
-      ],
-      "protocolSuggestion": {
-        "thermalCycleSeconds": 90,
-        "photobiomodulation": {
-          "redNm": 660,
-          "blueNm": 470
-        },
-        "mechanicalFrequencyHz": 32
-      }
+      ]
     }
   ]
 }

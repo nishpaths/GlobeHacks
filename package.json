@@ -1,0 +1,31 @@
+{
+  "name": "globehacks-recovery-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "lint": "tsc --noEmit",
+    "deploy:function": "tsx scripts/deploy-insforge-function.ts",
+    "check:insforge": "tsx scripts/check-insforge.ts"
+  },
+  "dependencies": {
+    "@insforge/sdk": "^1.2.5",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "next": "^15.3.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.8",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "esbuild": "^0.25.5",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.3"
+  }
+}

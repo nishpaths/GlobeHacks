@@ -7,6 +7,7 @@
   "required": [
     "schemaVersion",
     "sessionId",
+    "recoveryProfileId",
     "timestamp",
     "movements"
   ],
@@ -17,6 +18,10 @@
       "description": "Versioned schema contract for Recovery Intelligence telemetry."
     },
     "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "recoveryProfileId": {
       "type": "string",
       "format": "uuid"
     },
@@ -198,8 +203,7 @@
         "jointTelemetry",
         "alignmentValidated",
         "asymmetryAnalysis",
-        "recommendedPads",
-        "protocolSuggestion"
+        "recommendedPads"
       ],
       "properties": {
         "movementType": {
@@ -240,9 +244,6 @@
           "items": {
             "$ref": "#/$defs/recommendedPad"
           }
-        },
-        "protocolSuggestion": {
-          "$ref": "#/$defs/protocolSuggestion"
         }
       }
     }

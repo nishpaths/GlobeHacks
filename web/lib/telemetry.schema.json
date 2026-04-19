@@ -203,7 +203,6 @@
         "jointTelemetry",
         "alignmentValidated",
         "asymmetryAnalysis",
-        "recommendedPads",
         "protocolSuggestion"
       ],
       "properties": {
@@ -241,7 +240,6 @@
         },
         "recommendedPads": {
           "type": "array",
-          "minItems": 1,
           "items": {
             "$ref": "#/$defs/recommendedPad"
           }

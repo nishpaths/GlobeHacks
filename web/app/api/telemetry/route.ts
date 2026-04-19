@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { createClient } from "@insforge/sdk";
-import { handleTelemetryIngest } from "@/lib/telemetry-ingest";
+import { handleTelemetryIngest, TelemetryHttpError } from "@/lib/telemetry-ingest";
+import { readInsforgeProjectConfig } from "@/lib/insforge-project";
 import { TELEMETRY_SCHEMA_VERSION } from "@/lib/telemetry-contract";
 
 export const dynamic = "force-dynamic";
@@ -50,9 +48,11 @@ interface TelemetryResult {
   recommendedPads: Array<{
     padType: "Sun" | "Moon";
     targetMuscle: string;
+    position: { x: number; y: number };
   }>;
   protocolSuggestion: {
     thermalCycleSeconds: number;
+    photobiomodulation: { red: number; blue: number };
     mechanicalFrequencyHz: number;
   };
 }
@@ -113,11 +113,23 @@ function processTelemetry(input: TelemetryInput): TelemetryResult {
       severity,
     },
     recommendedPads: [
-      { padType: "Sun", targetMuscle: `${weakerSide}_${targetMuscle}` },
-      { padType: "Moon", targetMuscle: `${strongerSide}_${targetMuscle}` },
+      {
+        padType: "Sun",
+        targetMuscle: `${weakerSide}_${targetMuscle}`,
+        position: weakerSide === "left" ? { x: 0.3, y: 0.6 } : { x: 0.7, y: 0.6 },
+      },
+      {
+        padType: "Moon",
+        targetMuscle: `${strongerSide}_${targetMuscle}`,
+        position: weakerSide === "left" ? { x: 0.7, y: 0.35 } : { x: 0.3, y: 0.35 },
+      },
     ],
     protocolSuggestion: {
       thermalCycleSeconds: input.protocolSuggestion.thermalCycleSeconds,
+      photobiomodulation: {
+        red: input.protocolSuggestion.photobiomodulation.red,
+        blue: input.protocolSuggestion.photobiomodulation.blue,
+      },
       mechanicalFrequencyHz,
     },
   };
@@ -141,32 +153,53 @@ function parseExplanationResponse(raw: string): string {
 }
 
 async function generateExplanation(result: TelemetryResult): Promise<string> {
+  const { baseUrl, apiKey, legacyApiKey } = readInsforgeProjectConfig();
+  const authToken = apiKey ?? legacyApiKey;
+
+  if (!baseUrl || !authToken) {
+    return EXPLANATION_FALLBACK;
+  }
+
+  let content = "";
   try {
-    const projectConfigPath = resolve(process.cwd(), ".insforge", "project.json");
-    const projectConfig = JSON.parse(readFileSync(projectConfigPath, "utf-8")) as {
-      oss_host?: string;
-      api_key?: string;
-    };
-
-    const baseUrl = projectConfig.oss_host;
-    const apiKey = projectConfig.api_key;
-    if (!baseUrl || !apiKey) return EXPLANATION_FALLBACK;
-
-    const insforge = createClient({ baseUrl, anonKey: apiKey });
-    const aiResponse = await insforge.ai.chat.completions.create({
-      model: "anthropic/claude-sonnet-4.6",
-      messages: [
-        { role: "system", content: EXPLANATION_PROMPT },
-        { role: "user", content: JSON.stringify(result) },
-      ],
-      temperature: 0.2,
+    const response = await fetch(`${baseUrl}/api/ai/chat/completion`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-sonnet-4.6",
+        messages: [
+          { role: "system", content: EXPLANATION_PROMPT },
+          { role: "user", content: JSON.stringify(result) },
+        ],
+        temperature: 0.2,
+        stream: false,
+      }),
+      cache: "no-store",
     });
 
-    const content = aiResponse?.choices?.[0]?.message?.content ?? "";
-    if (typeof content !== "string" || content.trim() === "") return EXPLANATION_FALLBACK;
+    if (!response.ok) {
+      console.error("[telemetry] Explanation request failed:", response.status, await response.text());
+      return EXPLANATION_FALLBACK;
+    }
+
+    const data = (await response.json()) as { text?: string; message?: string };
+    content = data.text || data.message || "";
+  } catch (error) {
+    console.error("LLM failed:", error);
+    return EXPLANATION_FALLBACK;
+  }
+
+  if (typeof content !== "string" || content.trim() === "") {
+    return EXPLANATION_FALLBACK;
+  }
+
+  try {
     return parseExplanationResponse(content);
   } catch (error) {
-    console.error(error);
+    console.error("LLM failed:", error);
     return EXPLANATION_FALLBACK;
   }
 }
@@ -227,41 +260,58 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const body = (await req.json()) as TelemetryInput;
     const result = processTelemetry(body);
+    const insforgeConfig = readInsforgeProjectConfig();
 
-    // Run AI explanation and DB ingestion concurrently
-    const [explanation, ingestResult] = await Promise.allSettled([
-      generateExplanation(result),
-      handleTelemetryIngest({
-        payload: bridgeToIngestRequest(body),
-        authorization: "Bearer demo-bypass-token",
-        baseUrl: process.env.NEXT_PUBLIC_INSFORGE_BASE_URL ?? "",
-      }),
-    ]);
-
-    const explanationValue =
-      explanation.status === "fulfilled" ? explanation.value : EXPLANATION_FALLBACK;
-
-    const dbSuccess = ingestResult.status === "fulfilled";
-    if (!dbSuccess) {
-      console.error("[telemetry] DB ingest failed:", ingestResult.reason);
+    if (!insforgeConfig.baseUrl) {
+      return Response.json(
+        { success: false, message: "InsForge base URL is missing." },
+        { status: 500 }
+      );
     }
+
+    const explanationPromise = generateExplanation(result);
+    const ingestResult = await handleTelemetryIngest({
+      payload: bridgeToIngestRequest(body),
+      authorization: "Bearer demo-bypass-token",
+      baseUrl: insforgeConfig.baseUrl,
+    });
+
+    const explanationValue = await explanationPromise;
+    const backendProtocolFromIngest =
+      ingestResult.movementRecommendations?.[0]?.protocolSuggestion;
+    const backendProtocol = backendProtocolFromIngest
+      ? {
+          thermalCycleSeconds: backendProtocolFromIngest.thermalCycleSeconds,
+          photobiomodulation: {
+            red: backendProtocolFromIngest.photobiomodulation.redNm,
+            blue: backendProtocolFromIngest.photobiomodulation.blueNm,
+          },
+          mechanicalFrequencyHz: backendProtocolFromIngest.mechanicalFrequencyHz,
+        }
+      : result.protocolSuggestion;
 
     return Response.json(
       {
         success: true,
         analysis: result.analysis,
         recommendedPads: result.recommendedPads,
-        protocolSuggestion: result.protocolSuggestion,
+        protocolSuggestion: backendProtocol,
         explanation: explanationValue,
-        db: dbSuccess
-          ? { saved: true, sessionId: ingestResult.value.sessionId }
-          : { saved: false },
       },
       { status: 200 }
     );
-  } catch {
+  } catch (error) {
+    console.error("[telemetry] request failed:", error);
+
+    if (error instanceof TelemetryHttpError) {
+      return Response.json(error.body, { status: error.status });
+    }
+
     return Response.json(
-      { success: false, message: "Internal server error." },
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Internal server error.",
+      },
       { status: 500 }
     );
   }

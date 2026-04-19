@@ -1,33 +1,23 @@
 import { CaptureOverlay } from "@/components/capture-overlay";
-import { MovementInsightPanel } from "@/components/movement-insight-panel";
-import { DEMO_MOVEMENT } from "@/lib/demoMovement";
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col gap-8 bg-background p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Live capture
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 md:px-6 lg:px-8">
+      <header className="space-y-2">
+        <p className="text-xs uppercase tracking-[0.32em] text-white/45">
+          Recovery Intelligence
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white">
+          Capture, Analyze, Review
         </h1>
-        <p className="text-sm text-muted-foreground">
-          Webcam with recovery zone overlay. Normalized pad positions map to canvas pixels on
-          resize.
+        <p className="max-w-3xl text-sm leading-6 text-white/60">
+          This screen now runs as a controlled workflow: frame the athlete, capture one short
+          movement window, then review a frozen recovery result with stable pad guidance and
+          protocol output.
         </p>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-8 lg:flex-row lg:items-start">
-        <section className="min-w-0 flex-1 space-y-3">
-          <h2 className="text-sm font-medium text-muted-foreground">Preview</h2>
-          <CaptureOverlay movement={DEMO_MOVEMENT} />
-        </section>
-
-        <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:max-w-md">
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground lg:sr-only">
-            Insights
-          </h2>
-          <MovementInsightPanel movement={DEMO_MOVEMENT} />
-        </aside>
-      </div>
-    </div>
+      <CaptureOverlay className="pb-10" />
+    </main>
   );
 }

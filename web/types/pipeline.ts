@@ -55,9 +55,9 @@ export interface Landmark {
   }
   
   export interface PadRecord {
-    pad: string; // "Sun" | "Moon"
+    padType: "Sun" | "Moon";
     position: { x: number; y: number };
-    muscle: string;
+    targetMuscle: string;
   }
   
   export interface ProtocolRecord {
@@ -81,6 +81,12 @@ export interface Landmark {
     type: "serialisation-error" | "validation-error" | "transmission-failure";
     message: string;
     field?: string;
+  }
+
+  export interface PipelineDebugEvent {
+    type: PipelineEventType;
+    message: string;
+    at: string;
   }
   
   export type PipelineEventType =

@@ -81,16 +81,19 @@ export interface InsforgeChatMessage {
       );
     }
   
-    async createRecords<T extends Record<string, unknown>>(
-      table: string,
-      rows: T[]
-    ): Promise<T[]> {
+  async createRecords<T extends Record<string, unknown>>(
+    table: string,
+    rows: T[],
+    options?: {
+      prefer?: string;
+    }
+  ): Promise<T[]> {
       return this.request<T[]>(
         `/api/database/records/${table}`,
         {
           method: "POST",
           headers: {
-            Prefer: "return=representation"
+            Prefer: options?.prefer ?? "return=representation"
           },
           body: JSON.stringify(rows)
         }

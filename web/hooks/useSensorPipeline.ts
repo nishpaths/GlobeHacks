@@ -2,82 +2,449 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { PoseEngine } from "@/modules/poseEngine";
+
+import { PipelineConfig } from "@/config/pipelineConfig";
+import { useAlignmentWarningRate } from "@/hooks/useAlignmentWarningRate";
+import PipelineEventBus from "@/lib/pipelineEventBus";
 import { computeAngleFrame } from "@/modules/angleCalculator";
 import { validateAlignment } from "@/modules/alignmentValidator";
 import { OutlierDetector } from "@/modules/outlierDetector";
+import { PoseEngine } from "@/modules/poseEngine";
 import { buildPayload, transmitWithRetry } from "@/modules/telemetrySerialiser";
-import { useAlignmentWarningRate } from "@/hooks/useAlignmentWarningRate";
-import PipelineEventBus from "@/lib/pipelineEventBus";
-import { PipelineConfig } from "@/config/pipelineConfig";
-import type { AsymmetryResult, PadRecord, ProtocolRecord } from "@/types/pipeline";
+import type { RecommendedPad } from "@globe/contracts";
+import type {
+  AngleResult,
+  AsymmetryResult,
+  Landmark,
+  PadRecord,
+  PipelineDebugEvent,
+  PipelineEventType,
+  ProtocolRecord,
+  RepetitionResult,
+} from "@/types/pipeline";
+
+type SessionPhase = "idle" | "capturing" | "analyzing" | "results";
+
+interface BackendAnalysisRecord {
+  imbalanceDetected: boolean;
+  delta: number;
+  weakerSide: "left" | "right";
+  targetMuscle: string;
+  severity: "none" | "moderate" | "severe";
+}
+
+interface CaptureAccumulator {
+  sessionId: string;
+  reps: RepetitionResult[];
+  bestAsymmetry: AsymmetryResult | null;
+  recommendedPads: PadRecord[];
+}
 
 export interface PipelineState {
+  phase: SessionPhase;
   isInitialising: boolean;
   isStreaming: boolean;
   poseEngineError: boolean;
   error: string | null;
   lastAsymmetry: AsymmetryResult | null;
   showRepositioningGuidance: boolean;
+  poseDetected: boolean;
+  lastLandmarks: Landmark[] | null;
+  currentAngles: Record<string, AngleResult> | null;
+  framesProcessed: number;
+  repsDetected: number;
+  calibrationProgress: number;
+  captureProgress: number;
+  captureDurationMs: number;
+  telemetryStatus: "idle" | "sending" | "sent" | "failed";
+  lastTelemetryMessage: string | null;
+  lastTelemetrySaved: boolean | null;
+  lastTelemetryAt: string | null;
+  lastExplanation: string | null;
+  lastRecommendedPads: RecommendedPad[];
+  lastProtocolSuggestion: ProtocolRecord | null;
+  lastBackendAnalysis: BackendAnalysisRecord | null;
+  recentEvents: PipelineDebugEvent[];
   sessionId: string;
 }
 
-/**
- * Default pad placement and protocol suggestion derived from asymmetry.
- * In production these would be computed by the intervention mapping module (Dev 2).
- */
+const CAPTURE_DURATION_MS = 8000;
+const ANALYSIS_DELAY_MS = 800;
+
+const DEFAULT_PROTOCOL: ProtocolRecord = {
+  thermalCycleSeconds: 90,
+  photobiomodulation: { red: 660, blue: 470 },
+  mechanicalFrequencyHz: 32,
+};
+
 function deriveRecommendedPads(asymmetry: AsymmetryResult | null): PadRecord[] {
-  if (!asymmetry || !asymmetry.thresholdExceeded) return [];
-  const weakerSide = asymmetry.left < asymmetry.right ? "left" : "right";
+  if (!asymmetry || !asymmetry.thresholdExceeded) {
+    return [];
+  }
+
+  const weakerSide = asymmetry.left <= asymmetry.right ? "left" : "right";
+  const strongerSide = weakerSide === "left" ? "right" : "left";
+
   return [
     {
-      pad: "Sun",
-      position: { x: weakerSide === "left" ? 0.3 : 0.7, y: 0.6 },
-      muscle: `${weakerSide} quadriceps`,
+      padType: "Sun",
+      position: { x: weakerSide === "left" ? 0.32 : 0.68, y: 0.64 },
+      targetMuscle: `${weakerSide}_quadriceps`,
     },
     {
-      pad: "Moon",
-      position: { x: weakerSide === "left" ? 0.7 : 0.3, y: 0.35 },
-      muscle: `${weakerSide === "left" ? "right" : "left"} hamstrings`,
+      padType: "Moon",
+      position: { x: strongerSide === "left" ? 0.32 : 0.68, y: 0.64 },
+      targetMuscle: `${strongerSide}_quadriceps`,
     },
   ];
 }
 
-const DEFAULT_PROTOCOL: ProtocolRecord = {
-  thermalCycleSeconds: 9,
-  photobiomodulation: { red: 660, blue: 450 },
-  mechanicalFrequencyHz: 40,
+function buildLocalAnalysis(asymmetry: AsymmetryResult): BackendAnalysisRecord {
+  const weakerSide = asymmetry.left <= asymmetry.right ? "left" : "right";
+  const severity =
+    asymmetry.delta < 5 ? "none" : asymmetry.delta <= 15 ? "moderate" : "severe";
+
+  return {
+    imbalanceDetected: asymmetry.delta > PipelineConfig.ASYMMETRY_THRESHOLD_DEG,
+    delta: asymmetry.delta,
+    weakerSide,
+    targetMuscle: "quadriceps",
+    severity,
+  };
+}
+
+function buildFallbackExplanation(analysis: BackendAnalysisRecord): string {
+  const oppositeSide = analysis.weakerSide === "left" ? "right" : "left";
+  return `${analysis.weakerSide === "left" ? "Left" : "Right"} side shows less movement depth, so activation is focused there to improve balance. ${oppositeSide === "left" ? "Left" : "Right"} side receives support to help maintain symmetry through the motion.`;
+}
+
+function selectBestAsymmetry(
+  current: AsymmetryResult | null,
+  candidates: AsymmetryResult[],
+): AsymmetryResult | null {
+  if (candidates.length === 0) {
+    return current;
+  }
+
+  const bestCandidate = candidates.reduce((best, candidate) =>
+    candidate.delta > best.delta ? candidate : best,
+  );
+
+  if (!current) {
+    return bestCandidate;
+  }
+
+  return bestCandidate.delta > current.delta ? bestCandidate : current;
+}
+
+function formatPipelineEventMessage(
+  type: PipelineEventType,
+  payload?: unknown,
+): string {
+  const details = payload && typeof payload === "object" ? payload : null;
+
+  switch (type) {
+    case "low-confidence-landmark": {
+      const index =
+        typeof (details as { index?: unknown } | null)?.index === "number"
+          ? (details as { index: number }).index
+          : null;
+      return index === null
+        ? "Low-confidence landmark detected."
+        : `Landmark ${index} confidence is low.`;
+    }
+    case "alignment-warning": {
+      const joint =
+        typeof (details as { joint?: unknown } | null)?.joint === "string"
+          ? (details as { joint: string }).joint.replaceAll("_", " ")
+          : "joint";
+      return `Alignment warning on ${joint}. Try holding a clearer side profile.`;
+    }
+    case "repositioning-guidance":
+      return "The pose tracker wants a cleaner side view before analysis continues.";
+    case "repetition-discarded":
+      return typeof (details as { reason?: unknown } | null)?.reason === "string"
+        ? (details as { reason: string }).reason
+        : "A repetition was discarded because there were not enough valid frames.";
+    case "serialisation-error":
+      return typeof (details as { message?: unknown } | null)?.message === "string"
+        ? (details as { message: string }).message
+        : "Telemetry could not be prepared for sending.";
+    case "transmission-failure":
+      return typeof (details as { message?: unknown } | null)?.message === "string"
+        ? (details as { message: string }).message
+        : "Telemetry failed to reach the backend.";
+    case "pose-engine-init-failure":
+      return "The motion tracking engine did not finish loading.";
+    case "camera-permission-denied":
+      return "Camera permission was denied.";
+    case "stream-interrupted":
+      return "Camera stream was interrupted.";
+    default:
+      return `${String(type).replace(/-/g, " ")}.`;
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+interface TelemetryApiResponse {
+  success?: boolean;
+  analysis?: BackendAnalysisRecord;
+  recommendedPads?: RecommendedPad[];
+  protocolSuggestion?: ProtocolRecord;
+  explanation?: string;
+}
+
+const INITIAL_STATE: PipelineState = {
+  phase: "idle",
+  isInitialising: false,
+  isStreaming: false,
+  poseEngineError: false,
+  error: null,
+  lastAsymmetry: null,
+  showRepositioningGuidance: false,
+  poseDetected: false,
+  lastLandmarks: null,
+  currentAngles: null,
+  framesProcessed: 0,
+  repsDetected: 0,
+  calibrationProgress: 0,
+  captureProgress: 0,
+  captureDurationMs: CAPTURE_DURATION_MS,
+  telemetryStatus: "idle",
+  lastTelemetryMessage: null,
+  lastTelemetrySaved: null,
+  lastTelemetryAt: null,
+  lastExplanation: null,
+  lastRecommendedPads: [],
+  lastProtocolSuggestion: null,
+  lastBackendAnalysis: null,
+  recentEvents: [],
+  sessionId: uuidv4(),
 };
 
-/**
- * useSensorPipeline — orchestrates the full sensor & telemetry pipeline.
- *
- * Usage:
- *   const { state, onStreamReady, onStreamError, onStreamInterrupted } = useSensorPipeline();
- */
 export function useSensorPipeline() {
-  const sessionId = useRef<string>(uuidv4());
+  const [state, setState] = useState<PipelineState>(INITIAL_STATE);
+
   const poseEngineRef = useRef<PoseEngine | null>(null);
   const outlierDetectorRef = useRef<OutlierDetector>(new OutlierDetector());
-  const allRepsRef = useRef<import("@/types/pipeline").RepetitionResult[]>([]);
+  const captureAccumulatorRef = useRef<CaptureAccumulator | null>(null);
+  const sessionIdRef = useRef<string>(INITIAL_STATE.sessionId);
+  const phaseRef = useRef<SessionPhase>(INITIAL_STATE.phase);
+  const captureStartedAtRef = useRef<number | null>(null);
+  const captureTimeoutRef = useRef<number | null>(null);
+  const captureProgressIntervalRef = useRef<number | null>(null);
 
-  const [state, setState] = useState<PipelineState>({
-    isInitialising: false,
-    isStreaming: false,
-    poseEngineError: false,
-    error: null,
-    lastAsymmetry: null,
-    showRepositioningGuidance: false,
-    sessionId: sessionId.current,
-  });
+  const {
+    showRepositioningGuidance,
+    recordNoWarning,
+    reset: resetWarningRate,
+  } = useAlignmentWarningRate();
 
-  const { showRepositioningGuidance, reset: resetWarningRate } =
-    useAlignmentWarningRate();
+  const clearCaptureTimers = useCallback(() => {
+    if (captureTimeoutRef.current !== null) {
+      window.clearTimeout(captureTimeoutRef.current);
+      captureTimeoutRef.current = null;
+    }
 
-  // Sync repositioning guidance into state
-  useEffect(() => {
-    setState((prev) => ({ ...prev, showRepositioningGuidance }));
-  }, [showRepositioningGuidance]);
+    if (captureProgressIntervalRef.current !== null) {
+      window.clearInterval(captureProgressIntervalRef.current);
+      captureProgressIntervalRef.current = null;
+    }
+  }, []);
+
+  const syncPhase = useCallback((phase: SessionPhase) => {
+    phaseRef.current = phase;
+    setState((prev) => ({ ...prev, phase }));
+  }, []);
+
+  const finalizeCapture = useCallback(async () => {
+    if (phaseRef.current !== "capturing") {
+      return;
+    }
+
+    clearCaptureTimers();
+    phaseRef.current = "analyzing";
+
+    setState((prev) => ({
+      ...prev,
+      phase: "analyzing",
+      captureProgress: 1,
+      telemetryStatus: "sending",
+      lastTelemetrySaved: null,
+      lastTelemetryAt: null,
+      lastTelemetryMessage: "Analyzing movement…",
+    }));
+
+    await delay(ANALYSIS_DELAY_MS);
+
+    const capture = captureAccumulatorRef.current;
+
+    if (!capture || capture.reps.length === 0 || !capture.bestAsymmetry) {
+      setState((prev) => ({
+        ...prev,
+        phase: "results",
+        telemetryStatus: "failed",
+        lastTelemetrySaved: false,
+        lastTelemetryAt: new Date().toISOString(),
+        lastTelemetryMessage:
+          "Capture complete, but the system could not form a stable left-right comparison. Try another capture with both knees visible through the full movement.",
+        lastExplanation: null,
+        lastRecommendedPads: [],
+        lastProtocolSuggestion: null,
+        lastBackendAnalysis: null,
+      }));
+      phaseRef.current = "results";
+      return;
+    }
+
+    const fallbackAnalysis = buildLocalAnalysis(capture.bestAsymmetry);
+    const fallbackPads = capture.recommendedPads;
+    const fallbackExplanation = buildFallbackExplanation(fallbackAnalysis);
+
+    try {
+      const payload = buildPayload(
+        capture.sessionId,
+        capture.reps,
+        capture.bestAsymmetry,
+        capture.recommendedPads,
+        DEFAULT_PROTOCOL,
+      );
+
+      const response = await transmitWithRetry(payload);
+      const parsed = (await response.json().catch(() => null)) as TelemetryApiResponse | null;
+
+      setState((prev) => ({
+        ...prev,
+        phase: "results",
+        telemetryStatus: "sent",
+        lastTelemetrySaved: true,
+        lastTelemetryAt: new Date().toISOString(),
+        lastTelemetryMessage:
+          "Analysis complete. Review the summary, protocol, and pad placement guidance below.",
+        lastExplanation:
+          typeof parsed?.explanation === "string" && parsed.explanation.trim() !== ""
+            ? parsed.explanation
+            : fallbackExplanation,
+        lastRecommendedPads:
+          Array.isArray(parsed?.recommendedPads) && parsed.recommendedPads.length > 0
+            ? parsed.recommendedPads
+            : fallbackPads,
+        lastProtocolSuggestion:
+          parsed?.protocolSuggestion ?? prev.lastProtocolSuggestion ?? DEFAULT_PROTOCOL,
+        lastBackendAnalysis: parsed?.analysis ?? fallbackAnalysis,
+      }));
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        phase: "results",
+        telemetryStatus: "failed",
+        lastTelemetrySaved: false,
+        lastTelemetryAt: new Date().toISOString(),
+        lastTelemetryMessage:
+          error instanceof Error
+            ? error.message
+            : "Analysis failed before the backend returned a response.",
+        lastExplanation: fallbackExplanation,
+        lastRecommendedPads: fallbackPads,
+        lastProtocolSuggestion: prev.lastProtocolSuggestion ?? DEFAULT_PROTOCOL,
+        lastBackendAnalysis: fallbackAnalysis,
+      }));
+    }
+
+    phaseRef.current = "results";
+  }, [clearCaptureTimers]);
+
+  const startCapture = useCallback(() => {
+    if (!state.isStreaming || state.isInitialising) {
+      return;
+    }
+
+    clearCaptureTimers();
+    outlierDetectorRef.current.reset();
+    resetWarningRate();
+
+    const nextSessionId = uuidv4();
+    sessionIdRef.current = nextSessionId;
+    captureStartedAtRef.current = performance.now();
+    captureAccumulatorRef.current = {
+      sessionId: nextSessionId,
+      reps: [],
+      bestAsymmetry: null,
+      recommendedPads: [],
+    };
+    phaseRef.current = "capturing";
+
+    setState((prev) => ({
+      ...prev,
+      phase: "capturing",
+      error: null,
+      lastAsymmetry: null,
+      framesProcessed: 0,
+      repsDetected: 0,
+      calibrationProgress: 0,
+      captureProgress: 0,
+      telemetryStatus: "idle",
+      lastTelemetryMessage: null,
+      lastTelemetrySaved: null,
+      lastTelemetryAt: null,
+      lastExplanation: null,
+      lastRecommendedPads: [],
+      lastProtocolSuggestion: null,
+      lastBackendAnalysis: null,
+      recentEvents: [],
+      sessionId: nextSessionId,
+    }));
+
+    captureProgressIntervalRef.current = window.setInterval(() => {
+      const startedAt = captureStartedAtRef.current;
+      if (startedAt === null) {
+        return;
+      }
+
+      const progress = Math.min((performance.now() - startedAt) / CAPTURE_DURATION_MS, 1);
+      setState((prev) => ({ ...prev, captureProgress: progress }));
+    }, 100);
+
+    captureTimeoutRef.current = window.setTimeout(() => {
+      void finalizeCapture();
+    }, CAPTURE_DURATION_MS);
+  }, [clearCaptureTimers, finalizeCapture, resetWarningRate, state.isInitialising, state.isStreaming]);
+
+  const resetSession = useCallback(() => {
+    clearCaptureTimers();
+    phaseRef.current = "idle";
+    captureStartedAtRef.current = null;
+    captureAccumulatorRef.current = null;
+    outlierDetectorRef.current.reset();
+    resetWarningRate();
+    const nextSessionId = uuidv4();
+
+    setState((prev) => ({
+      ...prev,
+      phase: "idle",
+      error: null,
+      lastAsymmetry: null,
+      framesProcessed: 0,
+      repsDetected: 0,
+      calibrationProgress: 0,
+      captureProgress: 0,
+      telemetryStatus: "idle",
+      lastTelemetryMessage: null,
+      lastTelemetrySaved: null,
+      lastTelemetryAt: null,
+      lastExplanation: null,
+      lastRecommendedPads: [],
+      lastProtocolSuggestion: null,
+      lastBackendAnalysis: null,
+      recentEvents: [],
+      sessionId: nextSessionId,
+    }));
+  }, [clearCaptureTimers, resetWarningRate]);
 
   const onStreamReady = useCallback(async (videoEl: HTMLVideoElement) => {
     setState((prev) => ({ ...prev, isInitialising: true, error: null }));
@@ -96,44 +463,59 @@ export function useSensorPipeline() {
           }));
         },
         onLandmarks: (landmarkSet) => {
-          // Stage 2: compute angles
           const angleFrame = computeAngleFrame(
             landmarkSet,
             PipelineConfig.JOINTS,
-            PipelineConfig.POSE_CONFIDENCE_THRESHOLD
+            PipelineConfig.POSE_CONFIDENCE_THRESHOLD,
           );
-
-          // Stage 2: validate alignment
           const validatedFrame = validateAlignment(
             angleFrame,
-            PipelineConfig.ALIGNMENT_THRESHOLD_DEG
+            PipelineConfig.ALIGNMENT_THRESHOLD_DEG,
           );
 
-          // Stage 3: detect repetitions and asymmetry
-          const newReps = outlierDetectorRef.current.processFrame(validatedFrame);
-          if (newReps.length > 0) {
-            allRepsRef.current = [...allRepsRef.current, ...newReps];
-            const asymmetryResults = outlierDetectorRef.current.getAsymmetry(
-              allRepsRef.current
-            );
+          setState((prev) => ({
+            ...prev,
+            poseDetected: true,
+            lastLandmarks: landmarkSet.landmarks,
+            currentAngles: validatedFrame.angles,
+          }));
 
-            if (asymmetryResults.length > 0) {
-              const latest = asymmetryResults[asymmetryResults.length - 1];
-              setState((prev) => ({ ...prev, lastAsymmetry: latest }));
-
-              // Transmit telemetry (fire-and-forget — errors are logged via EventBus)
-              const payload = buildPayload(
-                sessionId.current,
-                newReps,
-                latest,
-                deriveRecommendedPads(latest),
-                DEFAULT_PROTOCOL
-              );
-              transmitWithRetry(payload).catch(() => {
-                // Transmission failure already emitted to EventBus
-              });
+          for (const [jointName, hasWarning] of Object.entries(
+            validatedFrame.alignmentWarnings,
+          )) {
+            if (!hasWarning) {
+              recordNoWarning(jointName);
             }
           }
+
+          if (phaseRef.current !== "capturing") {
+            return;
+          }
+
+          const newReps = outlierDetectorRef.current.processFrame(validatedFrame);
+          const detectorDebug = outlierDetectorRef.current.getDebugState();
+          const capture = captureAccumulatorRef.current;
+
+          if (!capture) {
+            return;
+          }
+
+          if (newReps.length > 0) {
+            capture.reps = [...capture.reps, ...newReps];
+            capture.bestAsymmetry = selectBestAsymmetry(
+              capture.bestAsymmetry,
+              outlierDetectorRef.current.getAsymmetry(capture.reps),
+            );
+            capture.recommendedPads = deriveRecommendedPads(capture.bestAsymmetry);
+          }
+
+          setState((prev) => ({
+            ...prev,
+            framesProcessed: prev.framesProcessed + 1,
+            repsDetected: capture.reps.length,
+            calibrationProgress: detectorDebug.calibrationProgress,
+            lastAsymmetry: capture.bestAsymmetry,
+          }));
         },
       });
 
@@ -151,36 +533,102 @@ export function useSensorPipeline() {
         error: "Failed to start motion tracking",
       }));
     }
-  }, []);
+  }, [recordNoWarning]);
 
   const onStreamError = useCallback((error: Error) => {
+    clearCaptureTimers();
+    phaseRef.current = "idle";
     setState((prev) => ({
       ...prev,
+      phase: "idle",
       isStreaming: false,
+      poseDetected: false,
       error: error.message,
+      telemetryStatus: "failed",
+      lastTelemetryMessage: error.message,
     }));
-  }, []);
+  }, [clearCaptureTimers]);
 
   const onStreamInterrupted = useCallback(() => {
-    setState((prev) => ({ ...prev, isStreaming: false }));
+    clearCaptureTimers();
+    phaseRef.current = "idle";
+    setState((prev) => ({
+      ...prev,
+      phase: "idle",
+      isStreaming: false,
+      poseDetected: false,
+      lastLandmarks: null,
+      currentAngles: null,
+      captureProgress: 0,
+    }));
+  }, [clearCaptureTimers]);
+
+  useEffect(() => {
+    const eventTypes: PipelineEventType[] = [
+      "camera-permission-denied",
+      "stream-interrupted",
+      "pose-engine-init-failure",
+      "low-confidence-landmark",
+      "alignment-warning",
+      "repositioning-guidance",
+      "repetition-discarded",
+      "serialisation-error",
+      "transmission-failure",
+    ];
+
+    const handlers = eventTypes.map((type) => {
+      const handler = (payload?: unknown) => {
+        setState((prev) => ({
+          ...prev,
+          recentEvents: [
+            {
+              type,
+              message: formatPipelineEventMessage(type, payload),
+              at: new Date().toISOString(),
+            },
+            ...prev.recentEvents,
+          ].slice(0, 8),
+        }));
+      };
+
+      PipelineEventBus.on(type, handler);
+      return { type, handler };
+    });
+
+    return () => {
+      for (const { type, handler } of handlers) {
+        PipelineEventBus.off(type, handler);
+      }
+    };
   }, []);
 
-  // Cleanup on unmount — release all in-memory buffers
   useEffect(() => {
+    setState((prev) => ({
+      ...prev,
+      showRepositioningGuidance:
+        showRepositioningGuidance && (prev.phase === "idle" || prev.phase === "capturing"),
+    }));
+  }, [showRepositioningGuidance]);
+
+  useEffect(() => {
+    const detector = outlierDetectorRef.current;
     return () => {
+      clearCaptureTimers();
       poseEngineRef.current?.destroy();
       poseEngineRef.current = null;
-      outlierDetectorRef.current.reset();
-      allRepsRef.current = [];
+      detector.reset();
+      captureAccumulatorRef.current = null;
       resetWarningRate();
-      PipelineEventBus.reset();
     };
-  }, [resetWarningRate]);
+  }, [clearCaptureTimers, resetWarningRate]);
 
   return {
     state,
+    startCapture,
+    resetSession,
     onStreamReady,
     onStreamError,
     onStreamInterrupted,
+    setPhase: syncPhase,
   };
 }

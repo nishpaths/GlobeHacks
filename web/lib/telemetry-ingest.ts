@@ -1,4 +1,5 @@
 import { buildInFilter, InsforgeApiClient } from "@/lib/insforge-api";
+import { readInsforgeProjectConfig } from "@/lib/insforge-project";
 import {
   generateProtocolSuggestion,
   type HistoricalMovementSummary
@@ -103,7 +104,9 @@ async function ensureRecoveryProfile(
         clinic_id: clinicId,
         created_by: userId
       }
-    ]);
+    ], {
+      prefer: "resolution=merge-duplicates,return=representation"
+    });
     return;
   }
 
@@ -247,9 +250,19 @@ export async function handleTelemetryIngest(
   // ── End demo bypass ─────────────────────────────────────────────────────────
 
   // Use a dummy token for the API client (InsforgeApiClient requires a string).
-  const dummyToken = "demo-bypass-token";
+  const projectConfig = readInsforgeProjectConfig();
+  const authToken =
+    projectConfig.apiKey ??
+    projectConfig.legacyApiKey ??
+    process.env.INSFORGE_API_KEY ??
+    process.env.INSFORGE_ANON_KEY;
+
+  if (!options.apiClient && !authToken) {
+    error(500, "InsForge credentials are missing for telemetry ingest.");
+  }
+
   const apiClient =
-    options.apiClient ?? new InsforgeApiClient(options.baseUrl, process.env.INSFORGE_API_KEY || dummyToken);
+    options.apiClient ?? new InsforgeApiClient(options.baseUrl, authToken!);
   await ensureRecoveryProfile(apiClient, payload, recoveryProfileId, clinicId, userId);
 
   const existingSessions = await apiClient.queryRecords<RecoverySessionRow>(
@@ -261,114 +274,145 @@ export async function handleTelemetryIngest(
     }
   );
 
-  if (existingSessions.length > 0) {
-    error(409, "A telemetry session with this sessionId already exists.");
+  const history = await loadHistory(apiClient, recoveryProfileId);
+  const sessionAlreadyExists = existingSessions.length > 0;
+
+  if (!sessionAlreadyExists) {
+    await apiClient.createRecords("recovery_sessions", [
+      {
+        id: payload.sessionId,
+        recovery_profile_id: recoveryProfileId,
+        clinic_id: clinicId,
+        captured_at: payload.timestamp,
+        schema_version: payload.schemaVersion,
+        created_by: userId
+      }
+    ], {
+      prefer: "resolution=merge-duplicates,return=representation"
+    });
   }
 
-  const history = await loadHistory(apiClient, recoveryProfileId);
-
-  await apiClient.createRecords("recovery_sessions", [
-    {
-      id: payload.sessionId,
-      recovery_profile_id: recoveryProfileId,
-      clinic_id: clinicId,
-      captured_at: payload.timestamp,
-      schema_version: payload.schemaVersion,
-      created_by: userId
-    }
-  ]);
-
   const movementRows = buildMovementRows(payload.sessionId, payload.movements);
-  await apiClient.createRecords(
-    "session_movements",
-    movementRows.map(({ row }) => row)
-  );
-
-  const jointTelemetryRows: Record<string, unknown>[] = [];
-  const asymmetryRows: Record<string, unknown>[] = [];
-  const padRows: Record<string, unknown>[] = [];
-  const protocolRows: Record<string, unknown>[] = [];
   const movementRecommendations: TelemetryIngestResponse["movementRecommendations"] = [];
+  const generatedRecommendations: Array<{
+    movementType: string;
+    protocolSuggestion: ProtocolSuggestion;
+    source: "ai" | "history_fallback" | "default_fallback";
+    modelName: string | null;
+    historySessionCount: number;
+    clampedFields: string[];
+  }> = [];
 
-  for (const { row, source } of movementRows) {
-    const movementId = row.id as string;
-
-    for (const [jointName, telemetry] of Object.entries(source.jointTelemetry)) {
-      jointTelemetryRows.push({
-        id: crypto.randomUUID(),
-        movement_id: movementId,
-        joint_name: jointName,
-        angle_series: telemetry.angleSeries,
-        max_flexion: telemetry.maxFlexion
-      });
-    }
-
-    for (const asymmetry of source.asymmetryAnalysis) {
-      asymmetryRows.push({
-        id: crypto.randomUUID(),
-        movement_id: movementId,
-        joint_type: asymmetry.jointType,
-        left_peak: asymmetry.leftPeak,
-        right_peak: asymmetry.rightPeak,
-        delta: asymmetry.delta,
-        threshold_exceeded: asymmetry.thresholdExceeded
-      });
-    }
-
-    for (const pad of source.recommendedPads) {
-      padRows.push({
-        id: crypto.randomUUID(),
-        movement_id: movementId,
-        pad_type: pad.padType,
-        target_muscle: pad.targetMuscle,
-        position_x: pad.position.x,
-        position_y: pad.position.y
-      });
-    }
-
+  for (const { source } of movementRows) {
     const recommendation = await generateProtocolSuggestion(apiClient, source, history);
+    generatedRecommendations.push({
+      movementType: source.movementType,
+      protocolSuggestion: recommendation.protocolSuggestion,
+      source: recommendation.source,
+      modelName: recommendation.modelName,
+      historySessionCount: recommendation.historySessionCount,
+      clampedFields: recommendation.clampedFields
+    });
     movementRecommendations.push({
       movementType: source.movementType,
       protocolSuggestion: recommendation.protocolSuggestion
     });
-
-    protocolRows.push({
-      id: crypto.randomUUID(),
-      movement_id: movementId,
-      thermal_cycle_seconds: recommendation.protocolSuggestion.thermalCycleSeconds,
-      photobiomodulation_red_nm:
-        recommendation.protocolSuggestion.photobiomodulation.redNm,
-      photobiomodulation_blue_nm:
-        recommendation.protocolSuggestion.photobiomodulation.blueNm,
-      mechanical_frequency_hz:
-        recommendation.protocolSuggestion.mechanicalFrequencyHz,
-      source: recommendation.source,
-      model_name: recommendation.modelName,
-      history_session_count: recommendation.historySessionCount,
-      clamped_fields: recommendation.clampedFields,
-      generated_at: options.now?.() ?? new Date().toISOString()
-    });
   }
 
-  if (jointTelemetryRows.length > 0) {
-    await apiClient.createRecords("joint_telemetry", jointTelemetryRows);
-  }
-  if (asymmetryRows.length > 0) {
-    await apiClient.createRecords("asymmetry_indicators", asymmetryRows);
-  }
-  if (padRows.length > 0) {
-    await apiClient.createRecords("pad_recommendations", padRows);
-  }
-  if (protocolRows.length > 0) {
-    await apiClient.createRecords("protocol_recommendations", protocolRows);
+  if (!sessionAlreadyExists) {
+    const jointTelemetryRows: Record<string, unknown>[] = [];
+    const asymmetryRows: Record<string, unknown>[] = [];
+    const padRows: Record<string, unknown>[] = [];
+    const protocolRows: Record<string, unknown>[] = [];
+
+    for (const [index, { row, source }] of movementRows.entries()) {
+      const movementId = row.id as string;
+
+      for (const [jointName, telemetry] of Object.entries(source.jointTelemetry)) {
+        jointTelemetryRows.push({
+          id: crypto.randomUUID(),
+          movement_id: movementId,
+          joint_name: jointName,
+          angle_series: telemetry.angleSeries,
+          max_flexion: telemetry.maxFlexion
+        });
+      }
+
+      for (const asymmetry of source.asymmetryAnalysis) {
+        asymmetryRows.push({
+          id: crypto.randomUUID(),
+          movement_id: movementId,
+          joint_type: asymmetry.jointType,
+          left_peak: asymmetry.leftPeak,
+          right_peak: asymmetry.rightPeak,
+          delta: asymmetry.delta,
+          threshold_exceeded: asymmetry.thresholdExceeded
+        });
+      }
+
+      for (const pad of source.recommendedPads ?? []) {
+        padRows.push({
+          id: crypto.randomUUID(),
+          movement_id: movementId,
+          pad_type: pad.padType,
+          target_muscle: pad.targetMuscle,
+          position_x: pad.position.x,
+          position_y: pad.position.y
+        });
+      }
+
+      const recommendation = generatedRecommendations[index];
+
+      if (!recommendation) {
+        continue;
+      }
+
+      protocolRows.push({
+        id: crypto.randomUUID(),
+        movement_id: movementId,
+        thermal_cycle_seconds: recommendation.protocolSuggestion.thermalCycleSeconds,
+        photobiomodulation_red_nm:
+          recommendation.protocolSuggestion.photobiomodulation.redNm,
+        photobiomodulation_blue_nm:
+          recommendation.protocolSuggestion.photobiomodulation.blueNm,
+        mechanical_frequency_hz:
+          recommendation.protocolSuggestion.mechanicalFrequencyHz,
+        source: recommendation.source,
+        model_name: recommendation.modelName,
+        history_session_count: recommendation.historySessionCount,
+        clamped_fields: recommendation.clampedFields,
+        generated_at: options.now?.() ?? new Date().toISOString()
+      });
+    }
+
+    await apiClient.createRecords(
+      "session_movements",
+      movementRows.map(({ row }) => row)
+    );
+
+    if (jointTelemetryRows.length > 0) {
+      await apiClient.createRecords("joint_telemetry", jointTelemetryRows);
+    }
+    if (asymmetryRows.length > 0) {
+      await apiClient.createRecords("asymmetry_indicators", asymmetryRows);
+    }
+    if (padRows.length > 0) {
+      await apiClient.createRecords("pad_recommendations", padRows);
+    }
+    if (protocolRows.length > 0) {
+      await apiClient.createRecords("protocol_recommendations", protocolRows);
+    }
   }
 
   return {
     success: true,
-    message: "Recovery telemetry session created successfully.",
+    message: sessionAlreadyExists
+      ? "Recovery telemetry session already existed. Returning the existing session response."
+      : "Recovery telemetry session created successfully.",
     sessionId: payload.sessionId,
     recoveryProfileId,
-    createdAt: options.now?.() ?? new Date().toISOString(),
+    createdAt:
+      existingSessions[0]?.captured_at ?? options.now?.() ?? new Date().toISOString(),
     movementRecommendations
   };
 }

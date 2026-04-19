@@ -23,7 +23,7 @@ export interface MovementTelemetry {
   jointTelemetry: Record<string, JointTelemetry>;
   alignmentValidated: boolean;
   asymmetryAnalysis: AsymmetryIndicator[];
-  recommendedPads: RecommendedPad[];
+  recommendedPads?: RecommendedPad[];
   protocolSuggestion: ProtocolSuggestion;
 }
 

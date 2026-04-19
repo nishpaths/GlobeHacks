@@ -1,7 +1,7 @@
 import type { ProtocolSuggestion } from "@globe/contracts";
 
 export const TELEMETRY_FUNCTION_SLUG = "telemetry-ingest";
-export const TELEMETRY_AI_MODEL = "openai/gpt-4o-mini";
+export const TELEMETRY_AI_MODEL = "anthropic/claude-sonnet-4.6";
 
 export const PROTOCOL_BOUNDS = {
   thermalCycleSeconds: {

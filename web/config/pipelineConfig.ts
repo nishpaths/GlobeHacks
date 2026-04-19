@@ -6,7 +6,26 @@ import type { JointConfig, KineticChainConfig } from "@/types/pipeline";
 // 15=left_wrist, 16=right_wrist, 23=left_hip, 24=right_hip
 // 25=left_knee, 26=right_knee, 27=left_ankle, 28=right_ankle
 
-const BASE_CONFIG = {
+export interface PipelineConfigType {
+  ALIGNMENT_THRESHOLD_DEG: number;
+  ASYMMETRY_THRESHOLD_DEG: number;
+  RETURN_TO_NEUTRAL_OFFSET_DEG: number;
+  MIN_VALID_ANGLES_PER_REP: number;
+  POSE_CONFIDENCE_THRESHOLD: number;
+  TARGET_FPS: number;
+  WEBCAM_WIDTH: number;
+  WEBCAM_HEIGHT: number;
+  RETRY_MAX_ATTEMPTS: number;
+  RETRY_BASE_DELAY_MS: number;
+  RESTING_ANGLE_CALIBRATION_FRAMES: number;
+  RING_BUFFER_CAPACITY: number;
+  ALIGNMENT_WARNING_WINDOW_FRAMES: number;
+  ALIGNMENT_WARNING_RATE_THRESHOLD: number;
+  JOINTS: JointConfig[];
+  KINETIC_CHAINS: KineticChainConfig[];
+}
+
+const BASE_CONFIG: PipelineConfigType = {
   // Stage 2 – Alignment Validation threshold (degrees)
   ALIGNMENT_THRESHOLD_DEG: 15,
   // Stage 3 – Asymmetry detection threshold (degrees)
@@ -49,9 +68,7 @@ const BASE_CONFIG = {
     { joint: "knee", left: "left_knee", right: "right_knee" },
     { joint: "hip", left: "left_hip", right: "right_hip" },
   ] as KineticChainConfig[],
-} as const;
-
-export type PipelineConfigType = typeof BASE_CONFIG;
+};
 
 // Exported singleton — read-only by all modules
 export const PipelineConfig: PipelineConfigType = BASE_CONFIG;

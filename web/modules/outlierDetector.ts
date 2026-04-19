@@ -18,6 +18,12 @@ import type {
     calibrationFrames: number[];
     isCalibrated: boolean;
   }
+
+  export interface OutlierDetectorDebugState {
+    calibratedJoints: number;
+    totalJoints: number;
+    calibrationProgress: number;
+  }
   
   /**
    * Stage 3 – Outlier Detection Engine.
@@ -80,18 +86,19 @@ import type {
           continue;
         }
   
-        const neutralThreshold =
-          state.restingAngle + this.config.RETURN_TO_NEUTRAL_OFFSET_DEG;
-  
+        const flexionThreshold =
+          state.restingAngle - this.config.RETURN_TO_NEUTRAL_OFFSET_DEG;
+
         if (state.repState === "BELOW_NEUTRAL") {
-          if (angle > neutralThreshold) {
-            // Transition to ABOVE_NEUTRAL — start collecting rep
+          if (angle < flexionThreshold) {
+            // Transition to ABOVE_NEUTRAL — start collecting rep once the
+            // joint bends below the calibrated resting angle by the configured offset.
             state.repState = "ABOVE_NEUTRAL";
             state.currentRepAngles = [angle];
           }
         } else {
           // ABOVE_NEUTRAL
-          if (angle <= neutralThreshold) {
+          if (angle >= flexionThreshold) {
             // Transition back to BELOW_NEUTRAL — flush completed repetition
             // Do NOT include the return-to-neutral frame in the series
             state.repState = "BELOW_NEUTRAL";
@@ -121,7 +128,8 @@ import type {
         return null;
       }
   
-      const maxFlexion = Math.max(...validAngles);
+      // For joints like the knee, deeper flexion means a smaller interior angle.
+      const maxFlexion = Math.min(...validAngles);
       return { joint: jointName, angleSeries: validAngles, maxFlexion };
     }
   
@@ -159,5 +167,31 @@ import type {
     reset(): void {
       this.jointStates.clear();
       this.initJointStates();
+    }
+
+    getDebugState(): OutlierDetectorDebugState {
+      let calibratedJoints = 0;
+      let progressSum = 0;
+
+      for (const state of this.jointStates.values()) {
+        if (state.isCalibrated) {
+          calibratedJoints += 1;
+          progressSum += 1;
+          continue;
+        }
+
+        progressSum += Math.min(
+          state.calibrationFrames.length / this.config.RESTING_ANGLE_CALIBRATION_FRAMES,
+          1
+        );
+      }
+
+      const totalJoints = this.jointStates.size;
+
+      return {
+        calibratedJoints,
+        totalJoints,
+        calibrationProgress: totalJoints === 0 ? 0 : progressSum / totalJoints,
+      };
     }
   }

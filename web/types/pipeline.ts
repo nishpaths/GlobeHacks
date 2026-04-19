@@ -73,6 +73,8 @@ export interface Landmark {
     asymmetry: AsymmetryRecord;
     recommendedPads: PadRecord[];
     protocolSuggestion: ProtocolRecord;
+    /** Demo bypass: hardcoded patient profile UUID. */
+    recoveryProfileId: string;
   }
   
   export interface SerialiserError {

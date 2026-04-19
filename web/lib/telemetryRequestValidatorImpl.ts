@@ -2,7 +2,7 @@ import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 
 import type { TelemetryIngestRequest } from "@globe/contracts";
-import telemetrySchema from "../../contracts/telemetry.schema.json";
+import telemetrySchema from "@/lib/telemetry.schema.json";
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);

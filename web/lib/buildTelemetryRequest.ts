@@ -1,4 +1,4 @@
-import exampleRequest from "../../contracts/examples/telemetry.request.example.json";
+import exampleRequest from "@/lib/contracts-examples/telemetry.request.example.json";
 
 import type { MovementTelemetry, TelemetryIngestRequest } from "@globe/contracts";
 import { TELEMETRY_SCHEMA_VERSION } from "@globe/contracts";

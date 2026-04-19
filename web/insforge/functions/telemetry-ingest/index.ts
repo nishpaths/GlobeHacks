@@ -1,4 +1,4 @@
-import { handleTelemetryIngest, TelemetryHttpError } from "../../../src/lib/telemetry-ingest";
+import { handleTelemetryIngest, TelemetryHttpError } from "../../../lib/telemetry-ingest";
 
 declare const INSFORGE_BASE_URL: string;
 
@@ -37,9 +37,9 @@ export default async function (request: Request) {
     });
 
     return jsonResponse(201, response as unknown as Record<string, unknown>);
-  } catch (error) {
-    if (error instanceof TelemetryHttpError) {
-      return jsonResponse(error.status, error.body);
+  } catch (err) {
+    if (err instanceof TelemetryHttpError) {
+      return jsonResponse(err.status, err.body);
     }
 
     return jsonResponse(500, {

@@ -20,7 +20,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@globe/contracts": ["../contracts/telemetry.ts"]
+      "@globe/contracts": ["./lib/contracts-telemetry.ts"]
     }
   },
   "include": [

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import exampleRequest from "../../contracts/examples/telemetry.request.example.json";
+import exampleRequest from "@/lib/contracts-examples/telemetry.request.example.json";
 import type { MovementTelemetry } from "@globe/contracts";
 
 import { assertTelemetryRequestValid } from "./telemetryRequestValidatorImpl";

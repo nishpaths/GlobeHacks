@@ -1,5 +1,4 @@
 import { buildInFilter, InsforgeApiClient } from "@/lib/insforge-api";
-import { extractBearerToken, parseJwtClaims } from "@/lib/jwt";
 import {
   generateProtocolSuggestion,
   type HistoricalMovementSummary
@@ -87,19 +86,20 @@ function error(
 async function ensureRecoveryProfile(
   apiClient: Pick<InsforgeApiClient, "queryRecords" | "createRecords">,
   payload: TelemetryIngestRequest,
+  recoveryProfileId: string,
   clinicId: string,
   userId: string
 ) {
   const profiles = await apiClient.queryRecords<RecoveryProfileRow>("recovery_profiles", {
     select: "id,clinic_id",
-    id: `eq.${payload.recoveryProfileId}`,
+    id: `eq.${recoveryProfileId}`,
     limit: 1
   });
 
   if (profiles.length === 0) {
     await apiClient.createRecords("recovery_profiles", [
       {
-        id: payload.recoveryProfileId,
+        id: recoveryProfileId,
         clinic_id: clinicId,
         created_by: userId
       }
@@ -220,6 +220,11 @@ function buildMovementRows(
   }));
 }
 
+/** Demo bypass: hardcoded staff and clinic UUIDs used until auth is implemented. */
+const DEMO_USER_ID = "11111111-1111-1111-1111-111111111111";
+const DEMO_CLINIC_ID = "11111111-1111-1111-1111-111111111111";
+const DEMO_RECOVERY_PROFILE_ID = "22222222-2222-2222-2222-222222222222";
+
 export async function handleTelemetryIngest(
   options: TelemetryIngestOptions
 ): Promise<TelemetryIngestResponse> {
@@ -231,35 +236,21 @@ export async function handleTelemetryIngest(
   }
 
   const payload = validation.data;
-  const token = extractBearerToken(options.authorization);
-  const claims = parseJwtClaims(options.authorization);
 
-  if (!token || !claims?.sub) {
-    error(401, "A valid authenticated bearer token is required.");
-  }
+  // ── Demo auth bypass ────────────────────────────────────────────────────────
+  // JWT checks are skipped until a real auth system is in place.
+  // A dummy userId and clinicId are hardcoded so the DB writes proceed.
+  const userId = DEMO_USER_ID;
+  const clinicId = DEMO_CLINIC_ID;
+  // Resolve recoveryProfileId — fall back to demo UUID if not supplied.
+  const recoveryProfileId = payload.recoveryProfileId ?? DEMO_RECOVERY_PROFILE_ID;
+  // ── End demo bypass ─────────────────────────────────────────────────────────
 
-  const userId = claims.sub;
+  // Use a dummy token for the API client (InsforgeApiClient requires a string).
+  const dummyToken = "demo-bypass-token";
   const apiClient =
-    options.apiClient ?? new InsforgeApiClient(options.baseUrl, token);
-  const memberships = await apiClient.queryRecords<ClinicStaffRow>("clinic_staff", {
-    select: "id,clinic_id,role",
-    user_id: `eq.${userId}`,
-    limit: 2
-  });
-
-  if (memberships.length === 0) {
-    error(403, "No clinic membership was found for this authenticated staff user.");
-  }
-
-  if (memberships.length > 1) {
-    error(
-      409,
-      "Multiple clinic memberships were found for this user. A single clinic membership is required for v1 ingest."
-    );
-  }
-
-  const clinicId = memberships[0].clinic_id;
-  await ensureRecoveryProfile(apiClient, payload, clinicId, userId);
+    options.apiClient ?? new InsforgeApiClient(options.baseUrl, process.env.INSFORGE_API_KEY || dummyToken);
+  await ensureRecoveryProfile(apiClient, payload, recoveryProfileId, clinicId, userId);
 
   const existingSessions = await apiClient.queryRecords<RecoverySessionRow>(
     "recovery_sessions",
@@ -274,12 +265,12 @@ export async function handleTelemetryIngest(
     error(409, "A telemetry session with this sessionId already exists.");
   }
 
-  const history = await loadHistory(apiClient, payload.recoveryProfileId);
+  const history = await loadHistory(apiClient, recoveryProfileId);
 
   await apiClient.createRecords("recovery_sessions", [
     {
       id: payload.sessionId,
-      recovery_profile_id: payload.recoveryProfileId,
+      recovery_profile_id: recoveryProfileId,
       clinic_id: clinicId,
       captured_at: payload.timestamp,
       schema_version: payload.schemaVersion,
@@ -376,7 +367,7 @@ export async function handleTelemetryIngest(
     success: true,
     message: "Recovery telemetry session created successfully.",
     sessionId: payload.sessionId,
-    recoveryProfileId: payload.recoveryProfileId,
+    recoveryProfileId,
     createdAt: options.now?.() ?? new Date().toISOString(),
     movementRecommendations
   };

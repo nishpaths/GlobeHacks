@@ -1,5 +1,5 @@
-import exampleRequest from "../../contracts/examples/telemetry.request.example.json";
-import exampleTelemetryResponse from "../../contracts/examples/telemetry.response.example.json";
+import exampleRequest from "@/lib/contracts-examples/telemetry.request.example.json";
+import exampleTelemetryResponse from "@/lib/contracts-examples/telemetry.response.example.json";
 import type {
   TelemetryIngestRequest,
   TelemetryIngestResponse,

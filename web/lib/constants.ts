@@ -1,4 +1,4 @@
-import type { ProtocolSuggestion } from "../../contracts/telemetry";
+import type { ProtocolSuggestion } from "@globe/contracts";
 
 export const TELEMETRY_FUNCTION_SLUG = "telemetry-ingest";
 export const TELEMETRY_AI_MODEL = "openai/gpt-4o-mini";

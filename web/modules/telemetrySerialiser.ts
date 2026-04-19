@@ -17,7 +17,11 @@ const REQUIRED_FIELDS: (keyof TelemetryPayload)[] = [
   "asymmetry",
   "recommendedPads",
   "protocolSuggestion",
+  "recoveryProfileId",
 ];
+
+/** Demo bypass: hardcoded patient profile UUID used until auth is implemented. */
+const DEMO_RECOVERY_PROFILE_ID = "22222222-2222-2222-2222-222222222222";
 
 /**
  * Build a TelemetryPayload from pipeline outputs.
@@ -33,6 +37,7 @@ export function buildPayload(
   return {
     sessionId,
     timestamp: new Date().toISOString(),
+    recoveryProfileId: DEMO_RECOVERY_PROFILE_ID,
     movements: reps.map((r) => ({
       joint: r.joint,
       angleSeries: r.angleSeries,

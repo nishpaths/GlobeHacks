@@ -1,5 +1,5 @@
 import type { TelemetryIngestRequest, TelemetryIngestResponse } from "@globe/contracts";
-import exampleTelemetryResponse from "../../contracts/examples/telemetry.response.example.json";
+import exampleTelemetryResponse from "@/lib/contracts-examples/telemetry.response.example.json";
 
 /** Public env: full URL for `POST` telemetry ingest (e.g. `https://api.example.com/api/telemetry`). */
 export const NEXT_PUBLIC_TELEMETRY_API_URL_ENV = "NEXT_PUBLIC_TELEMETRY_API_URL" as const;

@@ -1,21 +1,23 @@
 import Ajv2020 from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 
-import telemetrySchema from "../../contracts/telemetry.schema.json";
+import telemetrySchema from "@/lib/telemetry.schema.json";
 
 import type {
   TelemetryIngestRequest,
   TelemetryIngestResponse,
   MovementTelemetry,
   ProtocolSuggestion
-} from "../../contracts/telemetry";
+} from "@/lib/contracts-telemetry";
 
 export type {
   TelemetryIngestRequest,
   TelemetryIngestResponse,
   MovementTelemetry,
   ProtocolSuggestion
-} from "../../contracts/telemetry";
+} from "@/lib/contracts-telemetry";
+
+export { TELEMETRY_SCHEMA_VERSION } from "@/lib/contracts-telemetry";
 
 const ajv = new Ajv2020({
   allErrors: true,

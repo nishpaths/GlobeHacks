@@ -1,4 +1,4 @@
-# Hydrawav3 — Recovery Intelligence Platform
+# Motion Telemetry for Hydrawav3
 
 A real-time biomechanics capture and recovery recommendation system built for the GlobeHacks hackathon. The app uses your device's webcam and MediaPipe Pose to track joint angles during movement, detect left/right asymmetry, and generate targeted recovery protocol suggestions powered by AI.
 

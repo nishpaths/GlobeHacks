@@ -5,6 +5,7 @@ import type { JointConfig, KineticChainConfig } from "@/types/pipeline";
 // 11=left_shoulder, 12=right_shoulder, 13=left_elbow, 14=right_elbow
 // 15=left_wrist, 16=right_wrist, 23=left_hip, 24=right_hip
 // 25=left_knee, 26=right_knee, 27=left_ankle, 28=right_ankle
+// 31=left_foot_index, 32=right_foot_index
 
 export interface PipelineConfigType {
   ALIGNMENT_THRESHOLD_DEG: number;
@@ -62,11 +63,16 @@ const BASE_CONFIG: PipelineConfigType = {
     { name: "right_elbow", proximal: 12, center: 14, distal: 16 },
     { name: "left_shoulder", proximal: 13, center: 11, distal: 23 },
     { name: "right_shoulder", proximal: 14, center: 12, distal: 24 },
+    { name: "left_ankle", proximal: 25, center: 27, distal: 31 },
+    { name: "right_ankle", proximal: 26, center: 28, distal: 32 },
   ] as JointConfig[],
 
   KINETIC_CHAINS: [
     { joint: "knee", left: "left_knee", right: "right_knee" },
     { joint: "hip", left: "left_hip", right: "right_hip" },
+    { joint: "shoulder", left: "left_shoulder", right: "right_shoulder" },
+    { joint: "elbow", left: "left_elbow", right: "right_elbow" },
+    { joint: "ankle", left: "left_ankle", right: "right_ankle" },
   ] as KineticChainConfig[],
 };
 

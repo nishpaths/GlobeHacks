@@ -1,5 +1,6 @@
 import { handleTelemetryIngest, TelemetryHttpError } from "@/lib/telemetry-ingest";
 import { readInsforgeProjectConfig } from "@/lib/insforge-project";
+import { buildPadTargets, getMovementSeverity } from "@/lib/movement-profiles";
 import { TELEMETRY_SCHEMA_VERSION } from "@/lib/telemetry-contract";
 
 export const dynamic = "force-dynamic";
@@ -90,16 +91,11 @@ Return ONLY:
 
 function processTelemetry(input: TelemetryInput): TelemetryResult {
   const { joint, left, right } = input.asymmetry;
-
   const delta = Math.abs(left - right);
   const weakerSide: Side = left <= right ? "left" : "right";
-  const strongerSide: Side = weakerSide === "left" ? "right" : "left";
   const imbalanceDetected = delta > 10;
-
-  const severity: Severity =
-    delta < 5 ? "none" : delta <= 15 ? "moderate" : "severe";
-
-  const targetMuscle = joint === "knee" ? "quadriceps" : "quadriceps";
+  const severity = getMovementSeverity(delta) as Severity;
+  const { targetMuscle, recommendedPads } = buildPadTargets(joint, weakerSide);
 
   const mechanicalFrequencyHz =
     severity === "none" ? 28 : severity === "moderate" ? 35 : 45;
@@ -112,18 +108,7 @@ function processTelemetry(input: TelemetryInput): TelemetryResult {
       targetMuscle,
       severity,
     },
-    recommendedPads: [
-      {
-        padType: "Sun",
-        targetMuscle: `${weakerSide}_${targetMuscle}`,
-        position: weakerSide === "left" ? { x: 0.3, y: 0.6 } : { x: 0.7, y: 0.6 },
-      },
-      {
-        padType: "Moon",
-        targetMuscle: `${strongerSide}_${targetMuscle}`,
-        position: weakerSide === "left" ? { x: 0.7, y: 0.35 } : { x: 0.3, y: 0.35 },
-      },
-    ],
+    recommendedPads,
     protocolSuggestion: {
       thermalCycleSeconds: input.protocolSuggestion.thermalCycleSeconds,
       photobiomodulation: {

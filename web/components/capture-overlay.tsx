@@ -45,6 +45,70 @@ const ZONE_LAYOUT: Record<string, { label: string; style: CSSProperties }> = {
     label: "Right hamstrings",
     style: { left: "60%", top: "58%", width: "12%", height: "18%" },
   },
+  left_glutes: {
+    label: "Left glutes",
+    style: { left: "29%", top: "50%", width: "12%", height: "13%" },
+  },
+  right_glutes: {
+    label: "Right glutes",
+    style: { left: "59%", top: "50%", width: "12%", height: "13%" },
+  },
+  left_hip_flexors: {
+    label: "Left hip flexors",
+    style: { left: "31%", top: "49%", width: "10%", height: "11%" },
+  },
+  right_hip_flexors: {
+    label: "Right hip flexors",
+    style: { left: "59%", top: "49%", width: "10%", height: "11%" },
+  },
+  left_deltoids: {
+    label: "Left deltoids",
+    style: { left: "22%", top: "28%", width: "13%", height: "10%" },
+  },
+  right_deltoids: {
+    label: "Right deltoids",
+    style: { left: "65%", top: "28%", width: "13%", height: "10%" },
+  },
+  left_rotator_cuff: {
+    label: "Left rotator cuff",
+    style: { left: "24%", top: "30%", width: "11%", height: "9%" },
+  },
+  right_rotator_cuff: {
+    label: "Right rotator cuff",
+    style: { left: "65%", top: "30%", width: "11%", height: "9%" },
+  },
+  left_biceps: {
+    label: "Left biceps",
+    style: { left: "24%", top: "37%", width: "10%", height: "13%" },
+  },
+  right_biceps: {
+    label: "Right biceps",
+    style: { left: "66%", top: "37%", width: "10%", height: "13%" },
+  },
+  left_triceps: {
+    label: "Left triceps",
+    style: { left: "24%", top: "39%", width: "10%", height: "13%" },
+  },
+  right_triceps: {
+    label: "Right triceps",
+    style: { left: "66%", top: "39%", width: "10%", height: "13%" },
+  },
+  left_calves: {
+    label: "Left calves",
+    style: { left: "30%", top: "74%", width: "9%", height: "14%" },
+  },
+  right_calves: {
+    label: "Right calves",
+    style: { left: "61%", top: "74%", width: "9%", height: "14%" },
+  },
+  left_tibialis: {
+    label: "Left tibialis",
+    style: { left: "31%", top: "73%", width: "8%", height: "14%" },
+  },
+  right_tibialis: {
+    label: "Right tibialis",
+    style: { left: "61%", top: "73%", width: "8%", height: "14%" },
+  },
   left_shoulder: {
     label: "Left shoulder",
     style: { left: "24%", top: "28%", width: "12%", height: "10%" },

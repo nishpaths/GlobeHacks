@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { PipelineConfig } from "@/config/pipelineConfig";
 import { useAlignmentWarningRate } from "@/hooks/useAlignmentWarningRate";
+import { buildPadTargets, getMovementProfile, getMovementSeverity } from "@/lib/movement-profiles";
 import PipelineEventBus from "@/lib/pipelineEventBus";
 import { computeAngleFrame } from "@/modules/angleCalculator";
 import { validateAlignment } from "@/modules/alignmentValidator";
@@ -83,32 +84,19 @@ function deriveRecommendedPads(asymmetry: AsymmetryResult | null): PadRecord[] {
   }
 
   const weakerSide = asymmetry.left <= asymmetry.right ? "left" : "right";
-  const strongerSide = weakerSide === "left" ? "right" : "left";
-
-  return [
-    {
-      padType: "Sun",
-      position: { x: weakerSide === "left" ? 0.32 : 0.68, y: 0.64 },
-      targetMuscle: `${weakerSide}_quadriceps`,
-    },
-    {
-      padType: "Moon",
-      position: { x: strongerSide === "left" ? 0.32 : 0.68, y: 0.64 },
-      targetMuscle: `${strongerSide}_quadriceps`,
-    },
-  ];
+  return buildPadTargets(asymmetry.joint, weakerSide).recommendedPads;
 }
 
 function buildLocalAnalysis(asymmetry: AsymmetryResult): BackendAnalysisRecord {
   const weakerSide = asymmetry.left <= asymmetry.right ? "left" : "right";
-  const severity =
-    asymmetry.delta < 5 ? "none" : asymmetry.delta <= 15 ? "moderate" : "severe";
+  const profile = getMovementProfile(asymmetry.joint);
+  const severity = getMovementSeverity(asymmetry.delta);
 
   return {
     imbalanceDetected: asymmetry.delta > PipelineConfig.ASYMMETRY_THRESHOLD_DEG,
     delta: asymmetry.delta,
     weakerSide,
-    targetMuscle: "quadriceps",
+    targetMuscle: profile.primaryMuscle,
     severity,
   };
 }

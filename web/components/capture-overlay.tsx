@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { MovementTelemetry, RecommendedPad } from "@globe/contracts";
 
+import { BodyZoneMap } from "@/components/zone-map/body-zone-map";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,105 +28,6 @@ const POSE_CONNECTIONS: Array<[number, number]> = [
 ];
 
 const LANDMARK_VISIBILITY_THRESHOLD = 0.35;
-
-const ZONE_LAYOUT: Record<string, { label: string; style: CSSProperties }> = {
-  left_quadriceps: {
-    label: "Left quadriceps",
-    style: { left: "28%", top: "58%", width: "12%", height: "18%" },
-  },
-  right_quadriceps: {
-    label: "Right quadriceps",
-    style: { left: "60%", top: "58%", width: "12%", height: "18%" },
-  },
-  left_hamstrings: {
-    label: "Left hamstrings",
-    style: { left: "28%", top: "58%", width: "12%", height: "18%" },
-  },
-  right_hamstrings: {
-    label: "Right hamstrings",
-    style: { left: "60%", top: "58%", width: "12%", height: "18%" },
-  },
-  left_glutes: {
-    label: "Left glutes",
-    style: { left: "29%", top: "50%", width: "12%", height: "13%" },
-  },
-  right_glutes: {
-    label: "Right glutes",
-    style: { left: "59%", top: "50%", width: "12%", height: "13%" },
-  },
-  left_hip_flexors: {
-    label: "Left hip flexors",
-    style: { left: "31%", top: "49%", width: "10%", height: "11%" },
-  },
-  right_hip_flexors: {
-    label: "Right hip flexors",
-    style: { left: "59%", top: "49%", width: "10%", height: "11%" },
-  },
-  left_deltoids: {
-    label: "Left deltoids",
-    style: { left: "22%", top: "28%", width: "13%", height: "10%" },
-  },
-  right_deltoids: {
-    label: "Right deltoids",
-    style: { left: "65%", top: "28%", width: "13%", height: "10%" },
-  },
-  left_rotator_cuff: {
-    label: "Left rotator cuff",
-    style: { left: "24%", top: "30%", width: "11%", height: "9%" },
-  },
-  right_rotator_cuff: {
-    label: "Right rotator cuff",
-    style: { left: "65%", top: "30%", width: "11%", height: "9%" },
-  },
-  left_biceps: {
-    label: "Left biceps",
-    style: { left: "24%", top: "37%", width: "10%", height: "13%" },
-  },
-  right_biceps: {
-    label: "Right biceps",
-    style: { left: "66%", top: "37%", width: "10%", height: "13%" },
-  },
-  left_triceps: {
-    label: "Left triceps",
-    style: { left: "24%", top: "39%", width: "10%", height: "13%" },
-  },
-  right_triceps: {
-    label: "Right triceps",
-    style: { left: "66%", top: "39%", width: "10%", height: "13%" },
-  },
-  left_calves: {
-    label: "Left calves",
-    style: { left: "30%", top: "74%", width: "9%", height: "14%" },
-  },
-  right_calves: {
-    label: "Right calves",
-    style: { left: "61%", top: "74%", width: "9%", height: "14%" },
-  },
-  left_tibialis: {
-    label: "Left tibialis",
-    style: { left: "31%", top: "73%", width: "8%", height: "14%" },
-  },
-  right_tibialis: {
-    label: "Right tibialis",
-    style: { left: "61%", top: "73%", width: "8%", height: "14%" },
-  },
-  left_shoulder: {
-    label: "Left shoulder",
-    style: { left: "24%", top: "28%", width: "12%", height: "10%" },
-  },
-  right_shoulder: {
-    label: "Right shoulder",
-    style: { left: "64%", top: "28%", width: "12%", height: "10%" },
-  },
-  left_hip: {
-    label: "Left hip",
-    style: { left: "31%", top: "48%", width: "10%", height: "10%" },
-  },
-  right_hip: {
-    label: "Right hip",
-    style: { left: "59%", top: "48%", width: "10%", height: "10%" },
-  },
-};
 
 export interface CaptureOverlayProps {
   movement?: MovementTelemetry;
@@ -242,65 +144,6 @@ function buildSupportText(pads: RecommendedPad[]): string {
   }
 
   return `Apply Moon pad to ${formatMuscleLabel(moonPad.targetMuscle)} to support symmetry on the opposite side.`;
-}
-
-function BodyZoneMap({ pads }: { pads: RecommendedPad[] }) {
-  return (
-    <div className="relative h-[26rem] overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.18),_transparent_38%),radial-gradient(circle_at_bottom,_rgba(168,85,247,0.18),_transparent_32%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,0.98))]">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:36px_36px] opacity-25" />
-      <div className="absolute left-1/2 top-7 h-16 w-16 -translate-x-1/2 rounded-full border border-white/10 bg-white/8" />
-      <div className="absolute left-1/2 top-24 h-34 w-24 -translate-x-1/2 rounded-[2rem] border border-white/10 bg-white/6" />
-      <div className="absolute left-[37%] top-[24%] h-24 w-8 -rotate-12 rounded-full border border-white/8 bg-white/5" />
-      <div className="absolute right-[37%] top-[24%] h-24 w-8 rotate-12 rounded-full border border-white/8 bg-white/5" />
-      <div className="absolute left-[42%] top-[53%] h-32 w-7 rounded-full border border-white/8 bg-white/5" />
-      <div className="absolute right-[42%] top-[53%] h-32 w-7 rounded-full border border-white/8 bg-white/5" />
-
-      {pads.map((pad) => {
-        const zone = ZONE_LAYOUT[pad.targetMuscle];
-        if (!zone) {
-          return null;
-        }
-
-        const isSun = pad.padType === "Sun";
-
-        return (
-          <div
-            key={`${pad.padType}-${pad.targetMuscle}`}
-            className={cn(
-              "absolute rounded-[1.25rem] border shadow-[0_0_42px_rgba(0,0,0,0.22)] backdrop-blur-sm",
-              isSun
-                ? "border-orange-300/70 bg-orange-400/30 shadow-orange-500/30"
-                : "border-sky-300/70 bg-sky-400/26 shadow-sky-500/30",
-            )}
-            style={zone.style}
-          >
-            <div
-              className={cn(
-                "absolute inset-0 animate-pulse rounded-[1.25rem]",
-                isSun ? "bg-orange-300/25" : "bg-sky-300/20",
-              )}
-            />
-          </div>
-        );
-      })}
-
-      <div className="absolute inset-x-6 bottom-5 flex flex-wrap gap-2">
-        {pads.map((pad) => (
-          <Badge
-            key={`legend-${pad.padType}-${pad.targetMuscle}`}
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.24em]",
-              pad.padType === "Sun"
-                ? "bg-orange-400/18 text-orange-100 ring-1 ring-orange-300/20"
-                : "bg-sky-400/18 text-sky-100 ring-1 ring-sky-300/20",
-            )}
-          >
-            {pad.padType} • {ZONE_LAYOUT[pad.targetMuscle]?.label ?? formatMuscleLabel(pad.targetMuscle)}
-          </Badge>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {

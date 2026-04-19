@@ -1,0 +1,76 @@
+# ============================================================
+# GlobeHacks — root .gitignore
+# Excludes large data files, build artifacts, and local tooling.
+# Only source code, configs, and docs are committed.
+# ============================================================
+
+# ── macOS ────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+desktop.ini
+
+# ── Large dataset files ──────────────────────────────────────
+# OpenCap / motion-capture data — too large for git
+LabValidation_withVideos/
+*.zip
+*.mot
+*.sto
+*.c3d
+*.trc
+*.osim
+
+# ── Python ───────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+.env.*
+*.log
+
+# ── Node / Next.js (hydrawav3-app) ───────────────────────────
+hydrawav3-app/node_modules/
+hydrawav3-app/.next/
+hydrawav3-app/out/
+hydrawav3-app/build/
+hydrawav3-app/coverage/
+hydrawav3-app/.pnp
+hydrawav3-app/.pnp.*
+hydrawav3-app/.yarn/*
+!hydrawav3-app/.yarn/patches
+!hydrawav3-app/.yarn/plugins
+!hydrawav3-app/.yarn/releases
+!hydrawav3-app/.yarn/versions
+hydrawav3-app/*.tsbuildinfo
+hydrawav3-app/next-env.d.ts
+hydrawav3-app/npm-debug.log*
+hydrawav3-app/yarn-debug.log*
+hydrawav3-app/yarn-error.log*
+hydrawav3-app/.pnpm-debug.log*
+hydrawav3-app/.vercel
+hydrawav3-app/.env*
+
+# Nested git repo created by create-next-app — not a submodule
+hydrawav3-app/.git/
+
+# ── Editor / IDE ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Secrets / certs ──────────────────────────────────────────
+*.pem
+*.key
+*.p12
+secrets/

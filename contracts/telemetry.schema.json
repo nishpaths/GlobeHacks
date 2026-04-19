@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://globehacks.local/schemas/telemetry.schema.json",
+  "title": "Recovery Intelligence Telemetry Ingest Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sessionId",
+    "timestamp",
+    "movements"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Versioned schema contract for Recovery Intelligence telemetry."
+    },
+    "sessionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "movements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/movementTelemetry"
+      }
+    }
+  },
+  "$defs": {
+    "captureWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "startedAt",
+        "endedAt",
+        "durationMs"
+      ],
+      "properties": {
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "endedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "jointTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "angleSeries",
+        "maxFlexion"
+      ],
+      "properties": {
+        "angleSeries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number"
+          }
+        },
+        "maxFlexion": {
+          "type": "number"
+        }
+      }
+    },
+    "asymmetryIndicator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jointType",
+        "leftPeak",
+        "rightPeak",
+        "delta",
+        "thresholdExceeded"
+      ],
+      "properties": {
+        "jointType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "leftPeak": {
+          "type": "number"
+        },
+        "rightPeak": {
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "thresholdExceeded": {
+          "type": "boolean"
+        }
+      }
+    },
+    "normalizedPosition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "recommendedPad": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "padType",
+        "targetMuscle",
+        "position"
+      ],
+      "properties": {
+        "padType": {
+          "type": "string",
+          "enum": [
+            "Sun",
+            "Moon"
+          ]
+        },
+        "targetMuscle": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "$ref": "#/$defs/normalizedPosition"
+        }
+      }
+    },
+    "photobiomodulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "redNm",
+        "blueNm"
+      ],
+      "properties": {
+        "redNm": {
+          "type": "number"
+        },
+        "blueNm": {
+          "type": "number"
+        }
+      }
+    },
+    "protocolSuggestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thermalCycleSeconds",
+        "photobiomodulation",
+        "mechanicalFrequencyHz"
+      ],
+      "properties": {
+        "thermalCycleSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "photobiomodulation": {
+          "$ref": "#/$defs/photobiomodulation"
+        },
+        "mechanicalFrequencyHz": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "movementTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "movementType",
+        "captureWindow",
+        "repCount",
+        "jointTelemetry",
+        "alignmentValidated",
+        "asymmetryAnalysis",
+        "recommendedPads",
+        "protocolSuggestion"
+      ],
+      "properties": {
+        "movementType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "captureWindow": {
+          "$ref": "#/$defs/captureWindow"
+        },
+        "repCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "jointTelemetry": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/jointTelemetry"
+          }
+        },
+        "alignmentValidated": {
+          "type": "boolean"
+        },
+        "asymmetryAnalysis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/asymmetryIndicator"
+          }
+        },
+        "recommendedPads": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/recommendedPad"
+          }
+        },
+        "protocolSuggestion": {
+          "$ref": "#/$defs/protocolSuggestion"
+        }
+      }
+    }
+  }
+}

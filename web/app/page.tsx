@@ -1,18 +1,33 @@
+import Link from "next/link";
+
 import { CaptureOverlay } from "@/components/capture-overlay";
 import { MovementInsightPanel } from "@/components/movement-insight-panel";
+import { buttonVariants } from "@/components/ui/button";
 import { DEMO_MOVEMENT } from "@/lib/demoMovement";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col gap-8 bg-background p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Live capture
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Webcam with recovery zone overlay. Normalized pad positions map to canvas pixels on
-          resize.
-        </p>
+      <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Live capture
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Webcam with recovery zone overlay. Normalized pad positions map to canvas pixels on
+            resize.
+          </p>
+        </div>
+        <Link
+          href="/landing"
+          className={cn(
+            buttonVariants({ variant: "outline", size: "sm" }),
+            "shrink-0 self-start",
+          )}
+        >
+          Product overview
+        </Link>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-8 lg:flex-row lg:items-start">

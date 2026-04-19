@@ -1,7 +1,6 @@
 "use client";
 
 import type { RecommendedPad } from "@globe/contracts";
-import { Moon, Sun } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -16,173 +15,178 @@ type ZoneRect = { label: string; x: number; y: number; width: number; height: nu
  * Quadriceps vs hamstrings use distinct vertical bands (previously duplicated).
  */
 const ZONE_LAYOUT: Record<string, ZoneRect> = {
-  left_quadriceps: {
-    label: "Left quadriceps",
-    x: 28,
-    y: 58,
-    width: 12,
-    height: 9,
-  },
+  // ── FRONT BODY ─────────────────────────────────────────────────────────────
+  // Convention: right_* = viewer's right (x ~16-26), left_* = viewer's left (x ~32-42)
   right_quadriceps: {
     label: "Right quadriceps",
-    x: 60,
-    y: 58,
-    width: 12,
-    height: 9,
-  },
-  left_hamstrings: {
-    label: "Left hamstrings",
-    x: 28,
-    y: 67,
-    width: 12,
-    height: 9,
-  },
-  right_hamstrings: {
-    label: "Right hamstrings",
-    x: 60,
-    y: 67,
-    width: 12,
-    height: 9,
-  },
-  left_glutes: {
-    label: "Left glutes",
-    x: 29,
-    y: 50,
-    width: 12,
-    height: 13,
-  },
-  right_glutes: {
-    label: "Right glutes",
-    x: 59,
-    y: 50,
-    width: 12,
-    height: 13,
-  },
-  left_hip_flexors: {
-    label: "Left hip flexors",
-    x: 31,
-    y: 49,
+    x: 17,
+    y: 60,
     width: 10,
-    height: 11,
+    height: 10,
+  },
+  left_quadriceps: {
+    label: "Left quadriceps",
+    x: 33,
+    y: 60,
+    width: 10,
+    height: 10,
   },
   right_hip_flexors: {
     label: "Right hip flexors",
-    x: 59,
+    x: 18,
     y: 49,
     width: 10,
-    height: 11,
-  },
-  left_deltoids: {
-    label: "Left deltoids",
-    x: 22,
-    y: 28,
-    width: 13,
     height: 10,
   },
-  right_deltoids: {
-    label: "Right deltoids",
-    x: 65,
-    y: 28,
-    width: 13,
-    height: 10,
-  },
-  left_rotator_cuff: {
-    label: "Left rotator cuff",
-    x: 24,
-    y: 30,
-    width: 11,
-    height: 9,
-  },
-  right_rotator_cuff: {
-    label: "Right rotator cuff",
-    x: 65,
-    y: 30,
-    width: 11,
-    height: 9,
-  },
-  left_biceps: {
-    label: "Left biceps",
-    x: 24,
-    y: 37,
+  left_hip_flexors: {
+    label: "Left hip flexors",
+    x: 32,
+    y: 49,
     width: 10,
-    height: 13,
+    height: 10,
   },
   right_biceps: {
     label: "Right biceps",
-    x: 66,
+    x: 14,
     y: 37,
-    width: 10,
-    height: 13,
-  },
-  left_triceps: {
-    label: "Left triceps",
-    x: 24,
-    y: 39,
-    width: 10,
-    height: 13,
-  },
-  right_triceps: {
-    label: "Right triceps",
-    x: 66,
-    y: 39,
-    width: 10,
-    height: 13,
-  },
-  left_calves: {
-    label: "Left calves",
-    x: 30,
-    y: 74,
     width: 9,
-    height: 14,
+    height: 12,
   },
-  right_calves: {
-    label: "Right calves",
-    x: 61,
-    y: 74,
+  left_biceps: {
+    label: "Left biceps",
+    x: 37,
+    y: 37,
     width: 9,
-    height: 14,
+    height: 12,
   },
-  left_tibialis: {
-    label: "Left tibialis",
-    x: 31,
-    y: 73,
-    width: 8,
-    height: 14,
+  right_deltoids: {
+    label: "Right deltoids",
+    x: 14,
+    y: 27,
+    width: 11,
+    height: 9,
   },
-  right_tibialis: {
-    label: "Right tibialis",
-    x: 61,
-    y: 73,
-    width: 8,
-    height: 14,
-  },
-  left_shoulder: {
-    label: "Left shoulder",
-    x: 24,
-    y: 28,
-    width: 12,
-    height: 10,
+  left_deltoids: {
+    label: "Left deltoids",
+    x: 35,
+    y: 27,
+    width: 11,
+    height: 9,
   },
   right_shoulder: {
     label: "Right shoulder",
-    x: 64,
-    y: 28,
-    width: 12,
+    x: 14,
+    y: 27,
+    width: 11,
+    height: 9,
+  },
+  left_shoulder: {
+    label: "Left shoulder",
+    x: 35,
+    y: 27,
+    width: 11,
+    height: 9,
+  },
+  right_tibialis: {
+    label: "Right tibialis",
+    x: 18,
+    y: 72,
+    width: 8,
+    height: 12,
+  },
+  left_tibialis: {
+    label: "Left tibialis",
+    x: 34,
+    y: 72,
+    width: 8,
+    height: 12,
+  },
+  right_hip: {
+    label: "Right hip",
+    x: 18,
+    y: 48,
+    width: 10,
     height: 10,
   },
   left_hip: {
     label: "Left hip",
-    x: 31,
+    x: 32,
     y: 48,
     width: 10,
     height: 10,
   },
-  right_hip: {
-    label: "Right hip",
-    x: 59,
-    y: 48,
+
+  // ── BACK BODY ──────────────────────────────────────────────────────────────
+  // Convention: right_* = viewer's right (x ~54-64), left_* = viewer's left (x ~70-80)
+  right_hamstrings: {
+    label: "Right hamstrings",
+    x: 71,
+    y: 60,
     width: 10,
     height: 10,
+  },
+  left_hamstrings: {
+    label: "Left hamstrings",
+    x: 55,
+    y: 60,
+    width: 10,
+    height: 10,
+  },
+  right_glutes: {
+    label: "Right glutes",
+    x: 71,
+    y: 49,
+    width: 10,
+    height: 11,
+  },
+  left_glutes: {
+    label: "Left glutes",
+    x: 61,
+    y: 49,
+    width: 10,
+    height: 11,
+  },
+  right_triceps: {
+    label: "Right triceps",
+    x: 75,
+    y: 37,
+    width: 9,
+    height: 12,
+  },
+  left_triceps: {
+    label: "Left triceps",
+    x: 52,
+    y: 37,
+    width: 9,
+    height: 12,
+  },
+  right_rotator_cuff: {
+    label: "Right rotator cuff",
+    x: 72,
+    y: 29,
+    width: 10,
+    height: 9,
+  },
+  left_rotator_cuff: {
+    label: "Left rotator cuff",
+    x: 54,
+    y: 29,
+    width: 10,
+    height: 9,
+  },
+  right_calves: {
+    label: "Right calves",
+    x: 71,
+    y: 72,
+    width: 9,
+    height: 12,
+  },
+  left_calves: {
+    label: "Left calves",
+    x: 56,
+    y: 72,
+    width: 9,
+    height: 12,
   },
 };
 
@@ -198,27 +202,6 @@ function formatMuscleLabel(muscle: string): string {
   return muscle
     .replaceAll("_", " ")
     .replace(/\b\w/g, (match) => match.toUpperCase());
-}
-
-function zoneCenter(zone: ZoneRect): { x: number; y: number } {
-  return { x: zone.x + zone.width / 2, y: zone.y + zone.height / 2 };
-}
-
-function markerPosition(pad: RecommendedPad, zone: ZoneRect | undefined): { x: number; y: number } {
-  const pos = pad.position;
-  if (
-    pos &&
-    typeof pos.x === "number" &&
-    typeof pos.y === "number" &&
-    !Number.isNaN(pos.x) &&
-    !Number.isNaN(pos.y)
-  ) {
-    return { x: pos.x * 100, y: pos.y * 100 };
-  }
-  if (zone) {
-    return zoneCenter(zone);
-  }
-  return { x: 50, y: 50 };
 }
 
 export function BodyZoneMap({ pads }: { pads: RecommendedPad[] }) {
@@ -263,6 +246,7 @@ export function BodyZoneMap({ pads }: { pads: RecommendedPad[] }) {
           height="100"
           preserveAspectRatio="xMidYMid meet"
           className="opacity-[0.42]"
+          style={{ filter: "brightness(0) invert(1)" }}
         />
 
         {pads.map((pad) => {
@@ -293,30 +277,7 @@ export function BodyZoneMap({ pads }: { pads: RecommendedPad[] }) {
           );
         })}
 
-        {pads.map((pad) => {
-          const zoneKey = resolveMuscleToZoneKey(pad.targetMuscle);
-          const zone = ZONE_LAYOUT[zoneKey];
-          if (!zone) {
-            return null;
-          }
-          const { x, y } = markerPosition(pad, zone);
-          const isSun = pad.padType === "Sun";
-          return (
-            <g
-              key={`marker-${pad.padType}-${pad.targetMuscle}`}
-              transform={`translate(${x} ${y})`}
-            >
-              <circle r={4.2} className="fill-slate-950/85 stroke-white/25" strokeWidth={0.35} />
-              <g transform="translate(-12, -12) scale(0.38)">
-                {isSun ? (
-                  <Sun className="text-orange-200" strokeWidth={2} aria-hidden />
-                ) : (
-                  <Moon className="text-sky-200" strokeWidth={2} aria-hidden />
-                )}
-              </g>
-            </g>
-          );
-        })}
+
       </svg>
 
       <div className="absolute inset-x-6 bottom-5 flex flex-wrap gap-2">

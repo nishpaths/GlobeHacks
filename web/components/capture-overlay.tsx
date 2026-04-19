@@ -502,7 +502,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
                       </p>
                     </div>
                     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-xs uppercase tracking-[0.28em] text-white/45">Photobiomodulation</p>
+                      <p className="truncate text-xs uppercase tracking-[0.28em] text-white/45">Photobiomod.</p>
                       <div className="mt-3 space-y-0.5 text-2xl font-semibold tabular-nums leading-snug text-white">
                         <p>{lastProtocolSuggestion.photobiomodulation.red} nm</p>
                         <p>{lastProtocolSuggestion.photobiomodulation.blue} nm</p>

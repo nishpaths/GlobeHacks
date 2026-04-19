@@ -26,6 +26,7 @@ import {
     modelName: string | null;
     clampedFields: string[];
     historySessionCount: number;
+    explanation?: string;
   }
   
   function extractJsonObject(raw: string): string {
@@ -43,8 +44,8 @@ import {
     return raw.trim();
   }
   
-  function parseProtocolSuggestion(raw: string): ProtocolSuggestion {
-    const parsed = JSON.parse(extractJsonObject(raw)) as ProtocolSuggestion;
+  function parseProtocolSuggestion(raw: string): ProtocolSuggestion & { explanation?: string } {
+    const parsed = JSON.parse(extractJsonObject(raw)) as ProtocolSuggestion & { explanation?: string };
     if (
       typeof parsed?.thermalCycleSeconds !== "number" ||
       typeof parsed?.mechanicalFrequencyHz !== "number" ||
@@ -149,7 +150,7 @@ import {
       {
         role: "system",
         content:
-         `You generate Hydrawav3 recovery protocol settings. Return JSON only with this exact shape: {"thermalCycleSeconds": number, "photobiomodulation": {"redNm": number, "blueNm": number}, "mechanicalFrequencyHz": number}.
+         `You generate Hydrawav3 recovery protocol settings. Return JSON only with this exact shape: {"thermalCycleSeconds": number, "photobiomodulation": {"redNm": number, "blueNm": number}, "mechanicalFrequencyHz": number, "explanation": "A strict 1-2 sentence clinical justification for why these settings were chosen based on the asymmetry."}.
           STRICT CALCULATION RUBRIC:
           1. Thermal Cycle (thermalCycleSeconds): 
             - Base value is 60. 
@@ -199,7 +200,8 @@ import {
         source: "ai",
         modelName: completion.model ?? TELEMETRY_AI_MODEL,
         clampedFields: clamped.clampedFields,
-        historySessionCount: history.length
+        historySessionCount: history.length,
+        explanation: parsed.explanation
       };
     } catch {
       if (historyFallback) {
@@ -208,7 +210,8 @@ import {
           source: "history_fallback",
           modelName: null,
           clampedFields: [],
-          historySessionCount: history.length
+          historySessionCount: history.length,
+          explanation: "AI generation failed. Applying safe settings from your last successful session."
         };
       }
   
@@ -217,7 +220,8 @@ import {
         source: "default_fallback",
         modelName: null,
         clampedFields: [],
-        historySessionCount: history.length
+        historySessionCount: history.length,
+        explanation: "Applying standard baseline recovery protocol."
       };
     }
   }

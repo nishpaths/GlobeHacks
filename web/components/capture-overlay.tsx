@@ -6,6 +6,7 @@ import type { MovementTelemetry, RecommendedPad } from "@globe/contracts";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useSensorPipeline } from "@/hooks/useSensorPipeline";
 
 function drawRecoveryZoneMarkers(
   ctx: CanvasRenderingContext2D,
@@ -36,6 +37,28 @@ function drawRecoveryZoneMarkers(
   }
 }
 
+// Derive RecommendedPad[] from the hook's lastAsymmetry (mirrors hook's internal logic,
+// but typed against the @globe/contracts shape used by the canvas renderer)
+function deriveLivePads(
+  lastAsymmetry: import("@/types/pipeline").AsymmetryResult | null,
+): RecommendedPad[] {
+  if (!lastAsymmetry || !lastAsymmetry.thresholdExceeded) return [];
+  const weakerSide = lastAsymmetry.left < lastAsymmetry.right ? "left" : "right";
+  const strongerSide = weakerSide === "left" ? "right" : "left";
+  return [
+    {
+      padType: "Sun",
+      targetMuscle: `${weakerSide}_quadriceps`,
+      position: { x: weakerSide === "left" ? 0.3 : 0.7, y: 0.6 },
+    },
+    {
+      padType: "Moon",
+      targetMuscle: `${strongerSide}_hamstrings`,
+      position: { x: weakerSide === "left" ? 0.7 : 0.3, y: 0.35 },
+    },
+  ];
+}
+
 export interface CaptureOverlayProps {
   movement: MovementTelemetry;
   className?: string;
@@ -46,6 +69,16 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // ── Step 1: Wire up the live sensor pipeline ──────────────────────────────
+  const { state, onStreamReady, onStreamError, onStreamInterrupted } = useSensorPipeline();
+  const { showRepositioningGuidance, lastAsymmetry } = state;
+
+  // Live pads from the pipeline; fall back to static prop when pipeline hasn't
+  // produced data yet (e.g. before first asymmetry is detected)
+  const livePads = deriveLivePads(lastAsymmetry);
+  const activePads: RecommendedPad[] =
+    livePads.length > 0 ? livePads : movement.recommendedPads;
 
   const redraw = useCallback(() => {
     const container = containerRef.current;
@@ -66,8 +99,9 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
     if (!ctx) return;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawRecoveryZoneMarkers(ctx, width, height, movement.recommendedPads);
-  }, [movement.recommendedPads]);
+    // ── Use live pads instead of static movement.recommendedPads ─────────────
+    drawRecoveryZoneMarkers(ctx, width, height, activePads);
+  }, [activePads]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -87,9 +121,13 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
         if (video) {
           video.srcObject = stream;
           await video.play().catch(() => {});
+          // ── Notify the pipeline that the stream is ready ──────────────────
+          await onStreamReady(video);
         }
         setCameraError(null);
-      } catch {
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        onStreamError(error);
         setCameraError(
           "Camera unavailable. Allow access in the browser, or use HTTPS / localhost.",
         );
@@ -99,9 +137,12 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
     return () => {
       cancelled = true;
       stream?.getTracks().forEach((t) => t.stop());
-      if (video) video.srcObject = null;
+      if (video) {
+        video.srcObject = null;
+        onStreamInterrupted();
+      }
     };
-  }, []);
+  }, [onStreamReady, onStreamError, onStreamInterrupted]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -135,6 +176,17 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
           className="pointer-events-none absolute inset-0 h-full w-full"
           aria-hidden
         />
+
+        {/* ── Step 2: Repositioning guidance banner ──────────────────────── */}
+        {showRepositioningGuidance && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="absolute inset-x-0 top-0 flex items-center justify-center bg-yellow-500/90 px-4 py-2 text-center text-sm font-semibold text-black"
+          >
+            Please turn sideways to face the camera
+          </div>
+        )}
       </div>
 
       {cameraError ? (

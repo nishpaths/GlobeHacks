@@ -332,7 +332,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset-root",
         type=Path,
-        default=Path(__file__).parent.parent.parent / "GlobeHacks" / "LabValidation_withVideos",
+        default=Path(__file__).parent.parent.parent / "LabValidation_withVideos",
         help="Path to the LabValidation_withVideos directory",
     )
     parser.add_argument(

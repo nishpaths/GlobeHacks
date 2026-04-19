@@ -133,15 +133,6 @@ export function LandingView() {
               >
                 Open the live capture demo
               </Link>
-              <a
-                href="#features"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-11 border-white/15 bg-white/5 text-white hover:bg-white/10",
-                )}
-              >
-                How it works
-              </a>
             </div>
           </section>
 

@@ -8,6 +8,7 @@ import { BodyZoneMap } from "@/components/zone-map/body-zone-map";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SwitchCamera } from "lucide-react";
 import { useSensorPipeline } from "@/hooks/useSensorPipeline";
 import { cn } from "@/lib/utils";
 import type { AngleResult, Landmark } from "@/types/pipeline";
@@ -152,6 +153,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
   const { state, startCapture, resetSession, onStreamReady, onStreamError, onStreamInterrupted } =
     useSensorPipeline();
@@ -243,7 +245,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
+          video: { facingMode: facingMode },
           audio: false,
         });
 
@@ -276,7 +278,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
         onStreamInterrupted();
       }
     };
-  }, [onStreamError, onStreamInterrupted, onStreamReady]);
+  }, [onStreamError, onStreamInterrupted, onStreamReady, facingMode]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -420,6 +422,16 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
                       onClick={resetSession}
                     >
                       Clear Results
+                    </Button>
+                  ) : null}
+                  {phase === "idle" ? (
+                    <Button
+                      variant="outline"
+                      className="h-11 rounded-full border-white/15 bg-white/5 px-4 text-white hover:bg-white/10"
+                      onClick={() => setFacingMode((m) => m === "user" ? "environment" : "user")}
+                      aria-label="Flip camera"
+                    >
+                      <SwitchCamera className="h-4 w-4" />
                     </Button>
                   ) : null}
                 </div>

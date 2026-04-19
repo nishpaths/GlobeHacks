@@ -322,17 +322,14 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
     isStreaming,
     isInitialising,
     framesProcessed,
-    repsDetected,
     calibrationProgress,
     captureProgress,
     captureDurationMs,
     telemetryStatus,
-    lastTelemetryMessage,
     lastExplanation,
     lastRecommendedPads,
     lastProtocolSuggestion,
     lastBackendAnalysis,
-    recentEvents,
     error,
   } = state;
 
@@ -509,7 +506,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
               </div>
             ) : null}
 
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12),rgba(2,6,23,0.7))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12),rgba(2,6,23,0.45))]" />
 
             {showRepositioningGuidance && (phase === "idle" || phase === "capturing") ? (
               <div className="absolute inset-x-0 top-0 flex items-center justify-center bg-amber-400/90 px-4 py-2 text-center text-sm font-semibold text-slate-950">
@@ -530,82 +527,82 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
                 </Badge>
               ) : null}
             </div>
+          </div>
 
-            <div className="absolute inset-x-0 bottom-0 p-5 md:p-6">
-              <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/72 p-5 backdrop-blur-xl">
-                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.32em] text-white/45">
-                      {phaseHeadline}
-                    </p>
-                    <h2 className="text-2xl font-semibold tracking-tight text-white">
-                      {phase === "results" && lastBackendAnalysis
-                        ? `${getSideLabel(lastBackendAnalysis.weakerSide)} side needs more support`
-                        : phase === "analyzing"
-                          ? "Hold while the decision layer finishes"
-                          : "Capture first. Show insight second."}
-                    </h2>
-                    <p className="max-w-2xl text-sm leading-6 text-white/70">{phaseBody}</p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    {phase === "results" ? (
-                      <Button
-                        className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
-                        disabled={countdown !== null}
-                        onClick={() => setCountdown(3)}
-                      >
-                        {countdown !== null ? `Starting in ${countdown}...` : "Capture Again"}
-                      </Button>
-                    ) : (
-                      <Button
-                        className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
-                        disabled={!canStartCapture || countdown !== null}
-                        onClick={() => setCountdown(3)}
-                      >
-                        {countdown !== null
-                          ? `Starting in ${countdown}...`
-                          : isInitialising
-                            ? "Preparing Camera..."
-                            : isStreaming
-                              ? "Start Protocol"
-                              : "Waiting for Camera"}
-                      </Button>
-                    )}
-                    {phase === "results" ? (
-                      <Button
-                        variant="outline"
-                        className="h-11 rounded-full border-white/15 bg-white/5 px-5 text-white hover:bg-white/10"
-                        onClick={resetSession}
-                      >
-                        Clear Results
-                      </Button>
-                    ) : null}
-                  </div>
+          <div className="border-t border-white/10 bg-slate-950/90 p-5 md:p-6">
+            <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/72 p-5 backdrop-blur-xl">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.32em] text-white/45">
+                    {phaseHeadline}
+                  </p>
+                  <h2 className="text-2xl font-semibold tracking-tight text-white">
+                    {phase === "results" && lastBackendAnalysis
+                      ? `${getSideLabel(lastBackendAnalysis.weakerSide)} side needs more support`
+                      : phase === "analyzing"
+                        ? "Hold while the decision layer finishes"
+                        : "Capture first. Show insight second."}
+                  </h2>
+                  <p className="max-w-2xl text-sm leading-6 text-white/70">{phaseBody}</p>
                 </div>
 
-                {phase === "capturing" ? (
-                  <div className="mt-5 space-y-3">
-                    <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.28em] text-white/45">
-                      <span>Capture Progress</span>
-                      <span>{captureSeconds}s remaining</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-[linear-gradient(90deg,#22c55e,#38bdf8)] transition-[width] duration-100"
-                        style={{ width: `${Math.round(captureProgress * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-
-                {phase === "analyzing" ? (
-                  <div className="mt-5 flex items-center gap-3 text-sm text-white/75">
-                    <span className="inline-flex h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.8)] animate-pulse" />
-                    Analyzing movement and freezing the recommendation set…
-                  </div>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-3">
+                  {phase === "results" ? (
+                    <Button
+                      className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
+                      disabled={countdown !== null}
+                      onClick={() => setCountdown(3)}
+                    >
+                      {countdown !== null ? `Starting in ${countdown}...` : "Capture Again"}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
+                      disabled={!canStartCapture || countdown !== null}
+                      onClick={() => setCountdown(3)}
+                    >
+                      {countdown !== null
+                        ? `Starting in ${countdown}...`
+                        : isInitialising
+                          ? "Preparing Camera..."
+                          : isStreaming
+                            ? "Start Protocol"
+                            : "Waiting for Camera"}
+                    </Button>
+                  )}
+                  {phase === "results" ? (
+                    <Button
+                      variant="outline"
+                      className="h-11 rounded-full border-white/15 bg-white/5 px-5 text-white hover:bg-white/10"
+                      onClick={resetSession}
+                    >
+                      Clear Results
+                    </Button>
+                  ) : null}
+                </div>
               </div>
+
+              {phase === "capturing" ? (
+                <div className="mt-5 space-y-3">
+                  <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.28em] text-white/45">
+                    <span>Capture Progress</span>
+                    <span>{captureSeconds}s remaining</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-[linear-gradient(90deg,#22c55e,#38bdf8)] transition-[width] duration-100"
+                      style={{ width: `${Math.round(captureProgress * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {phase === "analyzing" ? (
+                <div className="mt-5 flex items-center gap-3 text-sm text-white/75">
+                  <span className="inline-flex h-3 w-3 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.8)] animate-pulse" />
+                  Analyzing movement and freezing the recommendation set…
+                </div>
+              ) : null}
             </div>
           </div>
         </Card>
@@ -654,22 +651,23 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
               </CardHeader>
               <CardContent>
                 {lastProtocolSuggestion ? (
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="grid gap-4 sm:grid-cols-3 sm:items-start">
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-xs uppercase tracking-[0.28em] text-white/45">Thermal Cycle</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">
+                      <p className="mt-3 text-2xl font-semibold tabular-nums text-white">
                         {lastProtocolSuggestion.thermalCycleSeconds}s
                       </p>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-xs uppercase tracking-[0.28em] text-white/45">Photobiomodulation</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">
-                        {lastProtocolSuggestion.photobiomodulation.red} / {lastProtocolSuggestion.photobiomodulation.blue}nm
-                      </p>
+                      <div className="mt-3 space-y-0.5 text-2xl font-semibold tabular-nums leading-snug text-white">
+                        <p>{lastProtocolSuggestion.photobiomodulation.red} nm</p>
+                        <p>{lastProtocolSuggestion.photobiomodulation.blue} nm</p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-xs uppercase tracking-[0.28em] text-white/45">Mechanical Frequency</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">
+                      <p className="mt-3 text-2xl font-semibold tabular-nums text-white">
                         {lastProtocolSuggestion.mechanicalFrequencyHz} Hz
                       </p>
                     </div>
@@ -854,33 +852,6 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
         </div>
       ) : null}
 
-      {phase === "results" && recentEvents.length > 0 ? (
-        <Card className="border-white/10 bg-slate-950/80">
-          <CardHeader>
-            <CardTitle className="text-white">Technical Timeline</CardTitle>
-            <CardDescription>Latest capture events for debugging the full pipeline.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentEvents.map((event, index) => (
-              <div
-                key={`${event.type}-${event.at}-${index}`}
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs uppercase tracking-[0.28em] text-white/45">
-                    {event.type.replaceAll("-", " ")}
-                  </span>
-                  <span className="text-xs text-white/45">
-                    {new Date(event.at).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-white/72">{event.message}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
       {phase !== "results" ? (
         <Card className="border-white/10 bg-slate-950/80">
           <CardContent className="flex flex-wrap items-center justify-between gap-4 py-5">
@@ -897,7 +868,6 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
             <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.24em] text-white/45">
               <span>Frames {framesProcessed}</span>
               <span>Calibration {Math.round(calibrationProgress * 100)}%</span>
-              <span>Reps {repsDetected}</span>
               <span>{telemetryStatus}</span>
             </div>
           </CardContent>
@@ -907,14 +877,6 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
       {cameraError ? (
         <Card className="border-rose-400/30 bg-rose-950/40">
           <CardContent className="py-5 text-sm text-rose-100">{cameraError}</CardContent>
-        </Card>
-      ) : null}
-
-      {phase === "results" && lastTelemetryMessage ? (
-        <Card className="border-white/10 bg-slate-950/80">
-          <CardContent className="py-5 text-sm text-white/72">
-            {lastTelemetryMessage}
-          </CardContent>
         </Card>
       ) : null}
 

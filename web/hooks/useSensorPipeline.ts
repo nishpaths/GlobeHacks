@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from "uuid";
 import { PipelineConfig } from "@/config/pipelineConfig";
 import { useAlignmentWarningRate } from "@/hooks/useAlignmentWarningRate";
 import { buildPadTargets, getMovementProfile, getMovementSeverity } from "@/lib/movement-profiles";
-import PipelineEventBus from "@/lib/pipelineEventBus";
 import { computeAngleFrame } from "@/modules/angleCalculator";
 import { validateAlignment } from "@/modules/alignmentValidator";
 import { OutlierDetector } from "@/modules/outlierDetector";
@@ -18,8 +17,6 @@ import type {
   AsymmetryResult,
   Landmark,
   PadRecord,
-  PipelineDebugEvent,
-  PipelineEventType,
   ProtocolRecord,
   RepetitionResult,
 } from "@/types/pipeline";
@@ -65,7 +62,6 @@ export interface PipelineState {
   lastRecommendedPads: RecommendedPad[];
   lastProtocolSuggestion: ProtocolRecord | null;
   lastBackendAnalysis: BackendAnalysisRecord | null;
-  recentEvents: PipelineDebugEvent[];
   sessionId: string;
 }
 
@@ -125,54 +121,6 @@ function selectBestAsymmetry(
   return bestCandidate.delta > current.delta ? bestCandidate : current;
 }
 
-function formatPipelineEventMessage(
-  type: PipelineEventType,
-  payload?: unknown,
-): string {
-  const details = payload && typeof payload === "object" ? payload : null;
-
-  switch (type) {
-    case "low-confidence-landmark": {
-      const index =
-        typeof (details as { index?: unknown } | null)?.index === "number"
-          ? (details as { index: number }).index
-          : null;
-      return index === null
-        ? "Low-confidence landmark detected."
-        : `Landmark ${index} confidence is low.`;
-    }
-    case "alignment-warning": {
-      const joint =
-        typeof (details as { joint?: unknown } | null)?.joint === "string"
-          ? (details as { joint: string }).joint.replaceAll("_", " ")
-          : "joint";
-      return `Alignment warning on ${joint}. Try holding a clearer side profile.`;
-    }
-    case "repositioning-guidance":
-      return "The pose tracker wants a cleaner side view before analysis continues.";
-    case "repetition-discarded":
-      return typeof (details as { reason?: unknown } | null)?.reason === "string"
-        ? (details as { reason: string }).reason
-        : "A repetition was discarded because there were not enough valid frames.";
-    case "serialisation-error":
-      return typeof (details as { message?: unknown } | null)?.message === "string"
-        ? (details as { message: string }).message
-        : "Telemetry could not be prepared for sending.";
-    case "transmission-failure":
-      return typeof (details as { message?: unknown } | null)?.message === "string"
-        ? (details as { message: string }).message
-        : "Telemetry failed to reach the backend.";
-    case "pose-engine-init-failure":
-      return "The motion tracking engine did not finish loading.";
-    case "camera-permission-denied":
-      return "Camera permission was denied.";
-    case "stream-interrupted":
-      return "Camera stream was interrupted.";
-    default:
-      return `${String(type).replace(/-/g, " ")}.`;
-  }
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -211,7 +159,6 @@ const INITIAL_STATE: PipelineState = {
   lastRecommendedPads: [],
   lastProtocolSuggestion: null,
   lastBackendAnalysis: null,
-  recentEvents: [],
   sessionId: uuidv4(),
 };
 
@@ -384,7 +331,6 @@ export function useSensorPipeline() {
       lastRecommendedPads: [],
       lastProtocolSuggestion: null,
       lastBackendAnalysis: null,
-      recentEvents: [],
       sessionId: nextSessionId,
     }));
 
@@ -429,7 +375,6 @@ export function useSensorPipeline() {
       lastRecommendedPads: [],
       lastProtocolSuggestion: null,
       lastBackendAnalysis: null,
-      recentEvents: [],
       sessionId: nextSessionId,
     }));
   }, [clearCaptureTimers, resetWarningRate]);
@@ -550,45 +495,6 @@ export function useSensorPipeline() {
       captureProgress: 0,
     }));
   }, [clearCaptureTimers]);
-
-  useEffect(() => {
-    const eventTypes: PipelineEventType[] = [
-      "camera-permission-denied",
-      "stream-interrupted",
-      "pose-engine-init-failure",
-      "low-confidence-landmark",
-      "alignment-warning",
-      "repositioning-guidance",
-      "repetition-discarded",
-      "serialisation-error",
-      "transmission-failure",
-    ];
-
-    const handlers = eventTypes.map((type) => {
-      const handler = (payload?: unknown) => {
-        setState((prev) => ({
-          ...prev,
-          recentEvents: [
-            {
-              type,
-              message: formatPipelineEventMessage(type, payload),
-              at: new Date().toISOString(),
-            },
-            ...prev.recentEvents,
-          ].slice(0, 8),
-        }));
-      };
-
-      PipelineEventBus.on(type, handler);
-      return { type, handler };
-    });
-
-    return () => {
-      for (const { type, handler } of handlers) {
-        PipelineEventBus.off(type, handler);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     setState((prev) => ({

@@ -149,9 +149,21 @@ import {
       {
         role: "system",
         content:
-          "You generate Hydrawav3 recovery protocol settings. Return JSON only " +
-          "with this exact shape: " +
-          '{"thermalCycleSeconds": number, "photobiomodulation": {"redNm": number, "blueNm": number}, "mechanicalFrequencyHz": number}.'
+         `You generate Hydrawav3 recovery protocol settings. Return JSON only with this exact shape: {"thermalCycleSeconds": number, "photobiomodulation": {"redNm": number, "blueNm": number}, "mechanicalFrequencyHz": number}.
+          STRICT CALCULATION RUBRIC:
+          1. Thermal Cycle (thermalCycleSeconds): 
+            - Base value is 60. 
+            - If any asymmetry indicator has \`thresholdExceeded: true\` and a \`delta\` > 10, set to 120. 
+            - If \`delta\` is between 5 and 10, set to 90.
+
+          2. Photobiomodulation (redNm / blueNm):
+            - Base values: redNm = 630, blueNm = 450.
+            - If the \`recommendedPads\` array targets a large muscle group (e.g., "quadriceps", "hamstrings", "glutes"), prioritize deep tissue repair: set redNm = 660.
+            - If the target is a joint or tendon area (e.g., "knee", "rotator_cuff", "shoulder"), prioritize inflammation reduction: set blueNm = 470.
+
+          3. Mechanical Frequency (mechanicalFrequencyHz):
+            - Base value is 20.
+            - If \`thresholdExceeded\` is true, scale the frequency up: 32 for moderate asymmetry (delta 5-15), and 40 for severe asymmetry (delta > 15).`
       },
       {
         role: "user",

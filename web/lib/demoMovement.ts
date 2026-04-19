@@ -1,7 +1,8 @@
-import type { MovementTelemetry } from "@globe/contracts";
+import type { MovementResult } from "./movementPipeline";
+import { movementResultToTelemetryMovement } from "./movementPipeline";
 
-/** Stub movement matching contracts/examples/telemetry.request.example.json; swap for live pipeline output later. */
-export const DEMO_MOVEMENT: MovementTelemetry = {
+/** Stub pipeline result matching contracts/examples/telemetry.request.example.json; swap for live output later. */
+export const DEMO_MOVEMENT_RESULT: MovementResult = {
   movementType: "squat",
   captureWindow: {
     startedAt: "2026-04-18T17:35:36Z",
@@ -9,7 +10,7 @@ export const DEMO_MOVEMENT: MovementTelemetry = {
     durationMs: 6000,
   },
   repCount: 3,
-  jointTelemetry: {
+  joints: {
     left_knee: {
       angleSeries: [176.2, 154.8, 126.5, 101.9, 94.3, 112.7, 148.1],
       maxFlexion: 94.3,
@@ -62,3 +63,6 @@ export const DEMO_MOVEMENT: MovementTelemetry = {
     mechanicalFrequencyHz: 32,
   },
 };
+
+/** Contract-shaped movement for UI and POST helpers, derived from {@link DEMO_MOVEMENT_RESULT}. */
+export const DEMO_MOVEMENT = movementResultToTelemetryMovement(DEMO_MOVEMENT_RESULT);

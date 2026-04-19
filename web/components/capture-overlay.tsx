@@ -308,6 +308,7 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const { state, startCapture, resetSession, onStreamReady, onStreamError, onStreamInterrupted } =
     useSensorPipeline();
@@ -349,6 +350,18 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
   const canStartCapture = isStreaming && !isInitialising && phase !== "capturing" && phase !== "analyzing";
   const captureSeconds = Math.ceil((captureDurationMs * (1 - captureProgress)) / 1000);
   const shouldDrawPose = phase === "idle" || phase === "capturing";
+
+  // Countdown timer — decrements every second; fires startCapture when it hits 0
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown > 0) {
+      const id = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+      return () => clearTimeout(id);
+    }
+    // countdown === 0
+    startCapture();
+    setCountdown(null);
+  }, [countdown, startCapture]);
 
   const redraw = useCallback(() => {
     const container = containerRef.current;
@@ -487,6 +500,15 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
               aria-hidden
             />
 
+            {/* Countdown overlay */}
+            {countdown !== null && countdown > 0 ? (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span className="text-9xl font-bold text-white drop-shadow-[0_0_40px_rgba(59,130,246,0.9)]">
+                  {countdown}
+                </span>
+              </div>
+            ) : null}
+
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12),rgba(2,6,23,0.7))]" />
 
             {showRepositioningGuidance && (phase === "idle" || phase === "capturing") ? (
@@ -530,21 +552,24 @@ export function CaptureOverlay({ movement, className }: CaptureOverlayProps) {
                     {phase === "results" ? (
                       <Button
                         className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
-                        onClick={startCapture}
+                        disabled={countdown !== null}
+                        onClick={() => setCountdown(3)}
                       >
-                        Capture Again
+                        {countdown !== null ? `Starting in ${countdown}...` : "Capture Again"}
                       </Button>
                     ) : (
                       <Button
                         className="h-11 rounded-full bg-[linear-gradient(135deg,#2563eb,#7c3aed)] px-5 text-white shadow-[0_12px_40px_rgba(59,130,246,0.35)] hover:scale-[1.01]"
-                        disabled={!canStartCapture}
-                        onClick={startCapture}
+                        disabled={!canStartCapture || countdown !== null}
+                        onClick={() => setCountdown(3)}
                       >
-                        {isInitialising
-                          ? "Preparing Camera..."
-                          : isStreaming
-                            ? "Start Protocol"
-                            : "Waiting for Camera"}
+                        {countdown !== null
+                          ? `Starting in ${countdown}...`
+                          : isInitialising
+                            ? "Preparing Camera..."
+                            : isStreaming
+                              ? "Start Protocol"
+                              : "Waiting for Camera"}
                       </Button>
                     )}
                     {phase === "results" ? (
